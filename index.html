@@ -2379,20 +2379,21 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
     enlace.remove();
     setTimeout(() => URL.revokeObjectURL(enlace.href), 60000);
   }
-  // Sin menú de compartir: se abre el programa de correo con destinatario, asunto y mensaje, y el PDF
-  // queda en Descargas. Si no hay programa de correo configurado, queda el enlace a Gmail.
+  // Computador: se abre Gmail directo con destinatario, asunto y mensaje, y el PDF queda en
+  // Descargas. El enlace "mailto" no abría nada en equipos sin programa de correo configurado.
   function correoDirecto() {
-    descargar();
     const a = encodeURIComponent(asunto());
     const m = encodeURIComponent(mensaje());
-    window.location.href = `mailto:${perfil.correo}?subject=${a}&body=${m}`;
-    ayuda.textContent = "Se abrió tu correo con el destinatario, el asunto y el mensaje listos. El PDF quedó en Descargas: arrástralo al correo o adjúntalo con el clip 📎 y envía. ";
-    const gmail = document.createElement("a");
-    gmail.href = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(perfil.correo)}&su=${a}&body=${m}`;
-    gmail.target = "_blank";
-    gmail.rel = "noopener";
-    gmail.textContent = "¿No se abrió? Escribirlo en Gmail";
-    ayuda.appendChild(gmail);
+    // Primero la pestaña de Gmail (dentro del mismo clic, para que el navegador no la bloquee).
+    const pestana = window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(perfil.correo)}&su=${a}&body=${m}`, "_blank");
+    descargar();
+    ayuda.textContent = pestana
+      ? "Se abrió Gmail con el destinatario, el asunto y el mensaje listos. El PDF quedó en Descargas: arrástralo al correo o adjúntalo con el clip 📎 y envía. "
+      : "El navegador bloqueó la pestaña de Gmail. El PDF quedó en Descargas. ";
+    const otro = document.createElement("a");
+    otro.href = `mailto:${perfil.correo}?subject=${a}&body=${m}`;
+    otro.textContent = pestana ? "¿Usas Outlook u otro programa? Ábrelo aquí" : "Abrir el correo aquí";
+    ayuda.appendChild(otro);
   }
 
   function esTelefono() {
