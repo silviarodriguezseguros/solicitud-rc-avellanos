@@ -608,7 +608,37 @@
   .globo-ayuda strong { display: block; margin-bottom: 3px; }
   .globo-ayuda p { margin: 0; color: var(--texto-2); }
 
-  .msg-campo { display: block; margin-top: .6mm; color: var(--texto-2); font: 500 7.6pt/1.3 system-ui, sans-serif; }
+  /* En computador el aviso flota bajo el campo sin agrandar la fila; en teléfono va debajo. */
+  .celda { position: relative; }
+  .msg-campo {
+    position: absolute;
+    top: calc(100% - 1mm);
+    left: 1.2mm;
+    z-index: 6;
+    max-width: 95mm;
+    padding: .5mm 1.4mm;
+    border-radius: 3px;
+    background: #fff;
+    box-shadow: 0 1px 5px rgba(0,0,0,.16);
+    color: var(--texto-2);
+    font: 500 7.6pt/1.3 system-ui, sans-serif;
+  }
+  button, select, .check { touch-action: manipulation; }
+
+  /* Teléfonos sin <dialog> (iOS antiguo) */
+  dialog:not([open]) { display: none; }
+  .sin-dialog dialog[open] {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    z-index: 100;
+    max-height: 92vh;
+    overflow: auto;
+    margin: 0;
+    transform: translate(-50%, -50%);
+    background: #fff;
+    box-shadow: 0 0 0 100vmax rgba(20,22,26,.45), 0 24px 70px rgba(0,0,0,.28);
+  }
   .msg-campo[data-tipo="error"] { color: var(--alerta); }
   .msg-campo[data-tipo="ok"] { color: #1d6b3a; }
 
@@ -736,7 +766,7 @@
     .doc-pie { margin-top: 8px; font-size: 12px; }
     .ayuda { width: 20px; height: 20px; margin-left: 6px; font-size: 12px; vertical-align: 0; }
     .globo-ayuda { font-size: 15px; }
-    .msg-campo { margin-top: 4px; font-size: 13px; }
+    .msg-campo { position: static; display: block; max-width: none; margin-top: 4px; padding: 0; box-shadow: none; background: none; font-size: 13px; }
   }
   .dlg-ayuda a { display: inline-block; margin-top: 4px; color: var(--foco); font-weight: 600; }
 
@@ -1090,7 +1120,7 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
 </dialog>
 
 <script id="datos-incrustados" type="application/json"></script>
-<script>window.addEventListener("error", function (e) { var n = document.getElementById("aviso-error"); if (n) n.textContent = " Detalle: " + e.message; document.documentElement.classList.remove("js-listo"); });</script>
+<script>window.addEventListener("error", function (e) { if (document.documentElement.classList.contains("js-listo")) return; var n = document.getElementById("aviso-error"); if (n) n.textContent = " Detalle: " + e.message; });</script>
 <script>
 (() => {
   const $ = (s, r = document) => r.querySelector(s);
@@ -1713,7 +1743,7 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
     borrador = borradorNuevo();
     almacen.escribir(CLAVE.borrador, borrador);
     cargar();
-    campo("ramo").focus();
+    campo("contratante_nombre").focus();
   });
 
   $("#btn-imprimir").addEventListener("click", () => window.print());
@@ -1862,6 +1892,46 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
     revisarHojas();
   });
 
+
+  /* ---------- Compatibilidad y respaldo ---------- */
+
+  // iPhone con iOS anterior a 15.4 no conoce <dialog>: sin esto, "Firmar" y "Finalizar" no abrían nada.
+  if (typeof HTMLDialogElement !== "function" || !HTMLDialogElement.prototype.showModal) {
+    document.documentElement.classList.add("sin-dialog");
+    $$("dialog").forEach((d) => {
+      d.open = false;
+      d.showModal = () => { d.setAttribute("open", ""); d.open = true; };
+      d.close = () => { d.removeAttribute("open"); d.open = false; };
+    });
+  }
+
+  // Cuenta y tarjeta no se guardan en el equipo, pero sí mientras la pestaña siga abierta:
+  // el teléfono puede recargar la página al volver desde Gmail o WhatsApp, y se perdían.
+  const CLAVE_SENSIBLES = CLAVE.borrador + ":sensibles";
+  const guardarBase = guardar;
+  guardar = function () {
+    guardarBase();
+    try {
+      const datos = {};
+      $$("[data-sensible]", hoja).forEach((el) => { if (el.value.trim()) datos[el.dataset.k] = el.value; });
+      sessionStorage.setItem(CLAVE_SENSIBLES, JSON.stringify(datos));
+    } catch {}
+  };
+  const cargarBase = cargar;
+  cargar = function () {
+    cargarBase();
+    try {
+      // "Empezar de nuevo" deja el borrador vacío: ahí también se olvidan cuenta y tarjeta.
+      if (!Object.values(borrador.campos).some((v) => String(v || "").trim())) {
+        sessionStorage.removeItem(CLAVE_SENSIBLES);
+        return;
+      }
+      const datos = JSON.parse(sessionStorage.getItem(CLAVE_SENSIBLES) || "{}");
+      $$("[data-sensible]", hoja).forEach((el) => {
+        if (datos[el.dataset.k]) { el.value = datos[el.dataset.k]; if (el.dataset.tipo) normalizar(el); }
+      });
+    } catch {}
+  };
 
   /* ---------- Ayuda "?" y revisión de datos ---------- */
 
@@ -2047,6 +2117,11 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
         return;
       }
       mensajeCampo(el, `✓ Número ${MARCAS[marca]} bien escrito.`, "ok");
+      // La confirmación se va sola para no dejar el formulario movido.
+      setTimeout(() => {
+        const m = (el.closest(".celda") || el.parentElement).querySelector('.msg-campo[data-tipo="ok"]');
+        if (m) m.remove();
+      }, 2500);
     } else if (k === "pat_vencimiento") {
       const d = v.replace(/\D/g, "");
       if (d.length !== 4) { marcarInvalido(el, "Escribe mes y año, por ejemplo 08/29."); return; }
@@ -2274,6 +2349,12 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
       windowWidth: 1200,
       logging: false,
       onclone(doc) {
+        // Solo van los datos de la forma de pago elegida: si alguien escribió una tarjeta
+        // y después eligió PAC o contado, ese número no debe quedar en el PDF.
+        const modalidad = borrador.toggles.modalidad;
+        doc.querySelectorAll('[data-k^="pac_"]').forEach((el) => { if (modalidad !== "pac") el.value = ""; });
+        doc.querySelectorAll('[data-k^="pat_"]').forEach((el) => { if (modalidad !== "pat") el.value = ""; });
+        if (modalidad !== "pat") doc.querySelectorAll('[data-toggle="marca"]').forEach((b) => b.setAttribute("aria-checked", "false"));
         const imgFirma = doc.getElementById("firma-corredora-img");
         if (imgFirma && FIRMA_CORREDORA) imgFirma.src = FIRMA_CORREDORA;
         const st = doc.createElement("style");
@@ -2291,8 +2372,12 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
           span.textContent = input.value;
           input.replaceWith(span);
         });
-        doc.querySelectorAll('.check[aria-checked="true"] .caja').forEach((c) => {
-          c.innerHTML = '<svg viewBox="0 0 10 10" preserveAspectRatio="none"><path d="M1 1L9 9M9 1L1 9" stroke="#161616" stroke-width="1.1"/></svg>';
+        // Todas las casillas se redibujan: la librería copia la X de pantalla dentro de la casilla,
+        // y una casilla desmarcada solo para el PDF la seguía mostrando.
+        doc.querySelectorAll(".caja").forEach((c) => {
+          c.innerHTML = c.closest('.check[aria-checked="true"]')
+            ? '<svg viewBox="0 0 10 10" preserveAspectRatio="none"><path d="M1 1L9 9M9 1L1 9" stroke="#161616" stroke-width="1.1"/></svg>'
+            : "";
         });
       },
     });
