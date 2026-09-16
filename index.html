@@ -923,7 +923,7 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
 
       <div class="fila" style="grid-template-columns: 40% 1fr">
         <label class="celda"><span class="lbl">PAC · Banco <button type="button" class="ayuda solo-pantalla" data-ayuda="pac" aria-label="¿Qué es PAC?" aria-expanded="false">?</button></span><input class="f" data-k="pac_banco" autocomplete="off"></label>
-        <label class="celda"><span class="lbl">PAC · Cta. cte.</span><input class="f" data-k="pac_cuenta" data-sensible inputmode="numeric" autocomplete="off"></label>
+        <label class="celda"><span class="lbl">PAC · Cta. cte. <button type="button" class="ayuda solo-pantalla" data-ayuda="pacCuenta" aria-label="Ayuda sobre la cuenta corriente" aria-expanded="false">?</button></span><input class="f" data-k="pac_cuenta" data-sensible inputmode="numeric" autocomplete="off"></label>
       </div>
 
       <div class="fila" style="grid-template-columns: 26% 22% 30% 22%">
@@ -934,7 +934,7 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
             <button type="button" class="check" data-toggle="marca" data-value="mastercard" role="checkbox" aria-checked="false">Mastercard <span class="caja" aria-hidden="true"></span></button>
           </div>
         </div>
-        <label class="celda"><span class="lbl">PAT · Banco</span><input class="f" data-k="pat_banco" autocomplete="off"></label>
+        <label class="celda"><span class="lbl">PAT · Banco <button type="button" class="ayuda solo-pantalla" data-ayuda="patBanco" aria-label="Ayuda sobre el banco de la tarjeta" aria-expanded="false">?</button></span><input class="f" data-k="pat_banco" autocomplete="off"></label>
         <label class="celda"><span class="lbl">PAT · N° de tarjeta <button type="button" class="ayuda solo-pantalla" data-ayuda="tarjeta" aria-label="Ayuda sobre el número de tarjeta" aria-expanded="false">?</button></span><input class="f" data-k="pat_numero" data-tipo="tarjeta" data-sensible inputmode="numeric" autocomplete="off"></label>
         <label class="celda"><span class="lbl">PAT · Vencimiento tarjeta <button type="button" class="ayuda solo-pantalla" data-ayuda="vencimiento" aria-label="Ayuda sobre el vencimiento" aria-expanded="false">?</button></span><input class="f" data-k="pat_vencimiento" data-tipo="mmaa" data-sensible inputmode="numeric" placeholder="MM/AA" autocomplete="off"></label>
       </div>
@@ -1862,6 +1862,14 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
     pat: {
       titulo: "PAT · Pago Automático con Tarjeta",
       texto: "La prima se carga automáticamente a tu tarjeta de crédito. Marca si es Visa o Mastercard e indica el banco que la emitió.",
+    },
+    pacCuenta: {
+      titulo: "Número de cuenta corriente",
+      texto: "El número de tu cuenta corriente, desde la que se descontará la prima. Lo encuentras en tu cartola o en la aplicación de tu banco. No se guarda en internet: solo va en el PDF que tú envías.",
+    },
+    patBanco: {
+      titulo: "Banco de la tarjeta",
+      texto: "El banco que emitió tu tarjeta de crédito. Suele aparecer impreso en la tarjeta, por ejemplo Banco de Chile, BancoEstado o Santander.",
     },
     tarjeta: {
       titulo: "Número de tarjeta",
