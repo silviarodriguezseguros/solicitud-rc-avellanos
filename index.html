@@ -554,6 +554,47 @@
   .firma-fecha .f[readonly] { background: transparent; border-bottom: .75px solid var(--regla); border-radius: 0; cursor: default; }
   .firma-fecha .f[readonly]:focus { box-shadow: none; }
 
+  /* Ayuda discreta: un "?" pequeño que solo explica al tocarlo. No sale impreso. */
+  .ayuda {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    width: 13px;
+    height: 13px;
+    margin-left: 3px;
+    padding: 0;
+    border: 1px solid #b3b9c2;
+    border-radius: 50%;
+    background: #fff;
+    color: var(--texto-2);
+    font: 700 8px/1 system-ui, sans-serif;
+    letter-spacing: 0;
+    text-transform: none;
+    vertical-align: 1px;
+    cursor: pointer;
+  }
+  .ayuda::after { content: ""; position: absolute; inset: -9px; }
+  .ayuda:hover, .ayuda[aria-expanded="true"] { border-color: var(--texto-2); color: var(--texto); }
+  .globo-ayuda {
+    position: absolute;
+    z-index: 16;
+    padding: 10px 12px;
+    border: 1px solid var(--borde);
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 10px 28px rgba(0,0,0,.14);
+    color: var(--texto);
+    font: 400 13px/1.45 system-ui, sans-serif;
+    text-transform: none;
+  }
+  .globo-ayuda[hidden] { display: none; }
+  .globo-ayuda strong { display: block; margin-bottom: 3px; }
+  .globo-ayuda p { margin: 0; color: var(--texto-2); }
+
+  .msg-campo { display: block; margin-top: .6mm; color: var(--texto-2); font: 500 7.6pt/1.3 system-ui, sans-serif; }
+  .msg-campo[data-tipo="error"] { color: var(--alerta); }
+  .msg-campo[data-tipo="ok"] { color: #1d6b3a; }
+
   .falta { box-shadow: 0 0 0 2px var(--alerta) !important; border-radius: 3px; }
 
   .final { max-width: 216mm; margin: 18px auto 0; display: flex; justify-content: center; }
@@ -676,6 +717,9 @@
     .firma-nombre { font-size: 15px; }
     .firma-fecha { width: 100%; font-size: 14px; }
     .doc-pie { margin-top: 8px; font-size: 12px; }
+    .ayuda { width: 20px; height: 20px; margin-left: 6px; font-size: 12px; vertical-align: 0; }
+    .globo-ayuda { font-size: 15px; }
+    .msg-campo { margin-top: 4px; font-size: 13px; }
   }
 
   @media print {
@@ -783,7 +827,7 @@
 
   <section class="seccion">
     <div class="seccion-cab">
-      <h2>2. Datos contratante <small>(Solo si es distinto al asegurado)</small></h2>
+      <h2>2. Datos contratante <small>(Solo si es distinto al asegurado)</small> <button type="button" class="ayuda solo-pantalla" data-ayuda="persona" aria-label="¿Persona natural o jurídica?" aria-expanded="false">?</button></h2>
       <div class="opciones">
         <button type="button" class="check" data-toggle="persona" data-value="juridica" role="checkbox" aria-checked="false">Persona jurídica <span class="caja" aria-hidden="true"></span></button>
         <button type="button" class="check" data-toggle="persona" data-value="natural" role="checkbox" aria-checked="false">Persona natural <span class="caja" aria-hidden="true"></span></button>
@@ -868,7 +912,7 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
     <div class="campos">
       <div class="fila c-full">
         <div class="celda">
-          <span class="lbl">Modalidad</span>
+          <span class="lbl">Modalidad <button type="button" class="ayuda solo-pantalla" data-ayuda="modalidad" aria-label="¿Qué es PAC, PAT y contado?" aria-expanded="false">?</button></span>
           <div class="opciones">
             <button type="button" class="check" data-toggle="modalidad" data-value="pac" role="checkbox" aria-checked="false">PAC <small>(cuenta corriente)</small> <span class="caja" aria-hidden="true"></span></button>
             <button type="button" class="check" data-toggle="modalidad" data-value="pat" role="checkbox" aria-checked="false">PAT <small>(tarjeta)</small> <span class="caja" aria-hidden="true"></span></button>
@@ -878,27 +922,27 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
       </div>
 
       <div class="fila" style="grid-template-columns: 40% 1fr">
-        <label class="celda"><span class="lbl">PAC · Banco</span><input class="f" data-k="pac_banco" autocomplete="off"></label>
+        <label class="celda"><span class="lbl">PAC · Banco <button type="button" class="ayuda solo-pantalla" data-ayuda="pac" aria-label="¿Qué es PAC?" aria-expanded="false">?</button></span><input class="f" data-k="pac_banco" autocomplete="off"></label>
         <label class="celda"><span class="lbl">PAC · Cta. cte.</span><input class="f" data-k="pac_cuenta" data-sensible inputmode="numeric" autocomplete="off"></label>
       </div>
 
       <div class="fila" style="grid-template-columns: 26% 22% 30% 22%">
         <div class="celda">
-          <span class="lbl">PAT · Visa o Mastercard</span>
+          <span class="lbl">PAT · Visa o Mastercard <button type="button" class="ayuda solo-pantalla" data-ayuda="pat" aria-label="¿Qué es PAT?" aria-expanded="false">?</button></span>
           <div class="opciones">
             <button type="button" class="check" data-toggle="marca" data-value="visa" role="checkbox" aria-checked="false">Visa <span class="caja" aria-hidden="true"></span></button>
             <button type="button" class="check" data-toggle="marca" data-value="mastercard" role="checkbox" aria-checked="false">Mastercard <span class="caja" aria-hidden="true"></span></button>
           </div>
         </div>
         <label class="celda"><span class="lbl">PAT · Banco</span><input class="f" data-k="pat_banco" autocomplete="off"></label>
-        <label class="celda"><span class="lbl">PAT · N° de tarjeta</span><input class="f" data-k="pat_numero" data-tipo="tarjeta" data-sensible inputmode="numeric" autocomplete="off"></label>
-        <label class="celda"><span class="lbl">PAT · Vencimiento tarjeta</span><input class="f" data-k="pat_vencimiento" data-tipo="mmaa" data-sensible inputmode="numeric" placeholder="MM/AA" autocomplete="off"></label>
+        <label class="celda"><span class="lbl">PAT · N° de tarjeta <button type="button" class="ayuda solo-pantalla" data-ayuda="tarjeta" aria-label="Ayuda sobre el número de tarjeta" aria-expanded="false">?</button></span><input class="f" data-k="pat_numero" data-tipo="tarjeta" data-sensible inputmode="numeric" autocomplete="off"></label>
+        <label class="celda"><span class="lbl">PAT · Vencimiento tarjeta <button type="button" class="ayuda solo-pantalla" data-ayuda="vencimiento" aria-label="Ayuda sobre el vencimiento" aria-expanded="false">?</button></span><input class="f" data-k="pat_vencimiento" data-tipo="mmaa" data-sensible inputmode="numeric" placeholder="MM/AA" autocomplete="off"></label>
       </div>
 
       <div class="fila" style="grid-template-columns: 20% 44% 1fr">
-        <label class="celda"><span class="lbl">N° de cuotas</span><input class="f" data-k="cuotas" data-tipo="entero" inputmode="numeric" autocomplete="off"></label>
+        <label class="celda"><span class="lbl">N° de cuotas <button type="button" class="ayuda solo-pantalla" data-ayuda="cuotas" aria-label="Ayuda sobre las cuotas" aria-expanded="false">?</button></span><input class="f" data-k="cuotas" data-tipo="entero" inputmode="numeric" autocomplete="off"></label>
         <div class="celda">
-          <span class="lbl">Día de pago o cargo</span>
+          <span class="lbl">Día de pago o cargo <button type="button" class="ayuda solo-pantalla" data-ayuda="dia" aria-label="Ayuda sobre el día de pago" aria-expanded="false">?</button></span>
           <div class="opciones">
             <button type="button" class="check" data-toggle="dia" data-value="5" role="checkbox" aria-checked="false">Día 5 <span class="caja" aria-hidden="true"></span></button>
             <button type="button" class="check" data-toggle="dia" data-value="15" role="checkbox" aria-checked="false">Día 15 <span class="caja" aria-hidden="true"></span></button>
@@ -906,7 +950,7 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
           </div>
         </div>
         <div class="celda">
-          <span class="lbl">Requiere factura</span>
+          <span class="lbl">Requiere factura <button type="button" class="ayuda solo-pantalla" data-ayuda="factura" aria-label="Ayuda sobre la factura" aria-expanded="false">?</button></span>
           <div class="opciones">
             <button type="button" class="check" data-toggle="factura" data-value="si" role="checkbox" aria-checked="false">Sí <span class="caja" aria-hidden="true"></span></button>
             <button type="button" class="check" data-toggle="factura" data-value="no" role="checkbox" aria-checked="false">No <span class="caja" aria-hidden="true"></span></button>
@@ -1800,6 +1844,196 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
   });
 
 
+  /* ---------- Ayuda "?" y revisión de datos ---------- */
+
+  const AYUDA = {
+    persona: {
+      titulo: "Persona natural o jurídica",
+      texto: "Natural: el seguro va a tu nombre. Jurídica: va a nombre de una empresa o sociedad (SpA, Ltda., S.A.); en ese caso usa la razón social y el RUT de la empresa.",
+    },
+    modalidad: {
+      titulo: "Forma de pago",
+      texto: "PAC: la prima se descuenta de tu cuenta corriente. PAT: se carga a tu tarjeta de crédito Visa o Mastercard. Contado: pagas el total de una vez.",
+    },
+    pac: {
+      titulo: "PAC · Pago Automático de Cuentas",
+      texto: "La prima se descuenta automáticamente de tu cuenta corriente. Indica el banco y el número de la cuenta.",
+    },
+    pat: {
+      titulo: "PAT · Pago Automático con Tarjeta",
+      texto: "La prima se carga automáticamente a tu tarjeta de crédito. Marca si es Visa o Mastercard e indica el banco que la emitió.",
+    },
+    tarjeta: {
+      titulo: "Número de tarjeta",
+      texto: "Son los números del frente de la tarjeta (normalmente 16). Se revisa que estén bien escritos. No se guardan en internet: solo van en el PDF que tú envías.",
+    },
+    vencimiento: {
+      titulo: "Vencimiento",
+      texto: "Mes y año impresos en la tarjeta, por ejemplo 08/29.",
+    },
+    cuotas: {
+      titulo: "Número de cuotas",
+      texto: "En cuántas cuotas quieres dividir el pago de la prima.",
+    },
+    dia: {
+      titulo: "Día de pago o cargo",
+      texto: "Día del mes en que se hará el descuento o cargo: 5, 15 o 25.",
+    },
+    factura: {
+      titulo: "Requiere factura",
+      texto: "Marca Sí si necesitas factura, por ejemplo cuando el seguro va a nombre de una empresa. Si no, marca No.",
+    },
+  };
+
+  const globo = document.createElement("div");
+  globo.className = "globo-ayuda solo-pantalla";
+  globo.setAttribute("role", "tooltip");
+  globo.hidden = true;
+  hoja.appendChild(globo);
+  let ayudaAbierta = null;
+
+  function cerrarAyuda() {
+    globo.hidden = true;
+    if (ayudaAbierta) ayudaAbierta.setAttribute("aria-expanded", "false");
+    ayudaAbierta = null;
+  }
+  // En captura: el "?" vive dentro de etiquetas y casillas, y no debe enfocar el campo ni marcar nada.
+  hoja.addEventListener("click", (e) => {
+    const b = e.target.closest(".ayuda");
+    if (!b) {
+      if (!e.target.closest(".globo-ayuda")) cerrarAyuda();
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    if (ayudaAbierta === b) { cerrarAyuda(); return; }
+    const info = AYUDA[b.dataset.ayuda];
+    if (!info) return;
+    globo.innerHTML = "";
+    const t = document.createElement("strong");
+    t.textContent = info.titulo;
+    const p = document.createElement("p");
+    p.textContent = info.texto;
+    globo.append(t, p);
+    globo.hidden = false;
+    const rh = hoja.getBoundingClientRect();
+    const rb = b.getBoundingClientRect();
+    const ancho = Math.min(320, rh.width - 16);
+    globo.style.width = ancho + "px";
+    const izquierda = Math.max(8, Math.min(rb.left - rh.left - 14, rh.width - ancho - 8));
+    globo.style.left = izquierda + "px";
+    globo.style.top = rb.bottom - rh.top + 6 + "px";
+    if (ayudaAbierta) ayudaAbierta.setAttribute("aria-expanded", "false");
+    ayudaAbierta = b;
+    b.setAttribute("aria-expanded", "true");
+  }, true);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") cerrarAyuda(); });
+  window.addEventListener("resize", cerrarAyuda);
+
+  // Mensaje pequeño bajo el campo: los "title" no se ven en el teléfono.
+  function mensajeCampo(el, texto, tipo) {
+    const celda = el.closest(".celda") || el.parentElement;
+    let m = celda.querySelector(".msg-campo");
+    if (!texto) { if (m) m.remove(); return; }
+    if (!m) {
+      m = document.createElement("span");
+      m.className = "msg-campo solo-pantalla";
+      m.setAttribute("aria-live", "polite");
+      celda.appendChild(m);
+    }
+    m.textContent = texto;
+    m.dataset.tipo = tipo;
+  }
+  function marcarInvalido(el, texto) {
+    el.classList.add("invalido");
+    el.title = texto;
+    mensajeCampo(el, texto, "error");
+  }
+
+  const MARCAS = { visa: "Visa", mastercard: "Mastercard" };
+  function marcaDe(d) {
+    if (d[0] === "4") return "visa";
+    const dos = Number(d.slice(0, 2));
+    const cuatro = Number(d.slice(0, 4));
+    if (dos >= 51 && dos <= 55) return "mastercard";
+    if (d.length >= 4 && cuatro >= 2221 && cuatro <= 2720) return "mastercard";
+    return "";
+  }
+
+  function validarExtra(el) {
+    const k = el.dataset.k;
+    if (!k) return;
+    // Los campos sin formato propio no pasan por normalizar: se limpia aquí el error anterior.
+    if (!el.dataset.tipo) { el.classList.remove("invalido"); el.removeAttribute("title"); }
+    if (el.classList.contains("invalido")) { mensajeCampo(el, el.title, "error"); return; }
+    mensajeCampo(el, "");
+    const v = el.value.trim();
+    if (!v) return;
+
+    if (k === "contratante_rut") {
+      const cuerpo = Number(v.split("-")[0].replace(/\D/g, ""));
+      if (!/-[\dK]$/i.test(v) || cuerpo < 1000000) marcarInvalido(el, "Revisa el RUT: parece incompleto.");
+    } else if (k === "contratante_celular") {
+      let d = v.replace(/\D/g, "");
+      if (d.startsWith("56")) d = d.slice(2);
+      if (d.length !== 9) marcarInvalido(el, "El celular debe tener 9 números, por ejemplo 9 1234 5678.");
+    } else if (k === "pac_cuenta") {
+      if (/[^\d\s.-]/.test(v)) marcarInvalido(el, "Usa solo números.");
+      else if (v.replace(/\D/g, "").length < 6) marcarInvalido(el, "Revisa el número de cuenta: parece incompleto.");
+    } else if (k === "cuotas") {
+      if (Number(v) < 1) marcarInvalido(el, "Debe ser al menos 1 cuota.");
+    } else if (k === "pat_numero") {
+      const d = v.replace(/\D/g, "");
+      const marca = marcaDe(d);
+      if (!marca) { marcarInvalido(el, "Debe ser una tarjeta Visa (empieza con 4) o Mastercard (empieza con 5 o 2)."); return; }
+      const largoOk = marca === "visa" ? [13, 16, 19].includes(d.length) : d.length === 16;
+      if (!largoOk) {
+        const esperado = d.length < 16 ? 16 : marca === "visa" && d.length < 19 ? 19 : 0;
+        marcarInvalido(el, esperado ? `Faltan números: tiene ${d.length} de ${esperado}.` : `Sobran números: tiene ${d.length}.`);
+        return;
+      }
+      if (!luhn(d)) { marcarInvalido(el, "Revisa el número: no corresponde a una tarjeta válida."); return; }
+      const elegida = borrador.toggles.marca;
+      if (!elegida) {
+        borrador.toggles.marca = marca;
+        pintarCasillas();
+        guardarPronto();
+      } else if (elegida !== marca) {
+        marcarInvalido(el, `Este número es de ${MARCAS[marca]}, pero está marcada ${MARCAS[elegida]}.`);
+        return;
+      }
+      mensajeCampo(el, `✓ Número ${MARCAS[marca]} bien escrito.`, "ok");
+    } else if (k === "pat_vencimiento") {
+      const d = v.replace(/\D/g, "");
+      if (d.length !== 4) { marcarInvalido(el, "Escribe mes y año, por ejemplo 08/29."); return; }
+      const mes = Number(d.slice(0, 2));
+      const fin = new Date(2000 + Number(d.slice(2)), mes, 0, 23, 59, 59);
+      if (fin < new Date()) marcarInvalido(el, "Esta tarjeta ya está vencida.");
+    }
+  }
+  function revalidar(el) {
+    if (!el) return;
+    normalizar(el);
+    validarExtra(el);
+  }
+
+  hoja.addEventListener("change", (e) => {
+    if (e.target.matches("input.f[data-k]")) validarExtra(e.target);
+  });
+  // Mientras se escribe la tarjeta, solo se cuenta; el error se muestra al terminar.
+  hoja.addEventListener("input", (e) => {
+    const el = e.target;
+    if (!el.matches || !el.matches('[data-k="pat_numero"]')) return;
+    el.classList.remove("invalido");
+    const n = el.value.replace(/\D/g, "").length;
+    mensajeCampo(el, n && n < 16 ? `${n} de 16 números` : "", "info");
+  });
+  // Si cambia Visa/Mastercard, se vuelve a revisar el número.
+  hoja.addEventListener("click", (e) => {
+    if (e.target.closest('[data-toggle="marca"]')) revalidar(campo("pat_numero"));
+  });
+
+
   /* ---------- Firma con el dedo o el mouse ---------- */
 
   const dlgFirma = $("#dlg-firma");
@@ -1913,7 +2147,7 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
       const el = campo(k);
       if (!el) return;
       if (!leer(el).trim()) faltan.push({ el, texto });
-      else if (el.classList.contains("invalido")) faltan.push({ el, texto: texto + " (revisa lo escrito)" });
+      else if (el.classList.contains("invalido")) faltan.push({ el, texto: texto + ": " + (el.title || "revisa lo escrito") });
     };
     const casilla = (grupo, texto) => {
       if (!borrador.toggles[grupo]) faltan.push({ el: $(`[data-toggle="${grupo}"]`, hoja), texto });
@@ -2032,7 +2266,7 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
 
   async function finalizar() {
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
-    $$("[data-tipo]", hoja).forEach(normalizar);
+    $$("input.f[data-k]", hoja).forEach((el) => { if (el.dataset.tipo) normalizar(el); validarExtra(el); });
     guardar();
     $$(".falta", document).forEach((n) => n.classList.remove("falta"));
     const faltan = revisarObligatorios();
