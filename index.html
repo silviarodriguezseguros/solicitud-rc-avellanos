@@ -1073,13 +1073,14 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
 
     <div class="dlg" style="padding:0" id="enviar-listo" hidden>
       <h2>Tu propuesta está lista</h2>
-      <p class="dlg-nota" style="margin:0">Envíasela por correo a <strong id="enviar-nombre-corredora"></strong>.</p>
+      <p class="dlg-nota" style="margin:0">Envíasela a <strong id="enviar-nombre-corredora"></strong>.</p>
       <div class="mensaje-previo">
         <span>Mensaje que va con el PDF</span>
         <p id="enviar-mensaje"></p>
       </div>
       <div class="enviar-opciones">
-        <button type="button" class="btn btn-primario" id="enviar-correo">Enviar por correo <small id="enviar-mail"></small></button>
+        <button type="button" class="btn" id="enviar-whatsapp" hidden>Enviar por WhatsApp <small id="enviar-fono"></small></button>
+        <button type="button" class="btn" id="enviar-correo">Enviar por correo <small id="enviar-mail"></small></button>
         <button type="button" class="btn" id="enviar-descargar">Descargar PDF <small>Para guardarlo o enviarlo después</small></button>
       </div>
       <p class="dlg-ayuda" id="enviar-ayuda" role="status"></p>
@@ -2394,14 +2395,25 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
     ayuda.appendChild(gmail);
   }
 
-  // Donde existe el menú de compartir (teléfonos, Mac y la mayoría de los Windows) el PDF
-  // va adjunto solo y se elige la aplicación de correo. El menú se abre antes de copiar
-  // nada: en Safari, copiar primero podía impedir que se abriera.
+  function esTelefono() {
+    const ua = navigator.userAgent || "";
+    return !!(navigator.userAgentData && navigator.userAgentData.mobile)
+      || /Android|iPhone|iPad|iPod/i.test(ua)
+      || (navigator.maxTouchPoints > 1 && /Macintosh/.test(ua));
+  }
+  // En el teléfono el menú de compartir adjunta el PDF solo. En Mac y Windows ese menú no
+  // sirve (no trae WhatsApp y el correo queda sin destinatario), así que ahí no se usa.
+  const TELEFONO = esTelefono();
+  function compartirPdf() {
+    if (!TELEFONO || !navigator.canShare || !navigator.canShare({ files: [pdfListo] })) return null;
+    // El menú se abre antes de copiar nada: en Safari, copiar primero podía impedir que se abriera.
+    return navigator.share({ files: [pdfListo], title: asunto(), text: mensaje() });
+  }
+
   async function enviarCorreo() {
     if (!pdfListo) return;
-    const compartible = navigator.canShare && navigator.canShare({ files: [pdfListo] });
-    if (!compartible) { correoDirecto(); return; }
-    const compartir = navigator.share({ files: [pdfListo], title: asunto(), text: mensaje() });
+    const compartir = compartirPdf();
+    if (!compartir) { correoDirecto(); return; }
     copiar(perfil.correo);
     ayuda.textContent = `Elige tu correo (Gmail, Mail u Outlook). El PDF va adjunto. En "Para", pega o escribe ${perfil.correo} y envía.`;
     try {
@@ -2411,12 +2423,39 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
       correoDirecto();
     }
   }
-  $("#enviar-correo").addEventListener("click", enviarCorreo);
+
+  // WhatsApp solo en el teléfono: ahí el PDF va adjunto junto al mensaje.
+  async function enviarWhatsapp() {
+    if (!pdfListo) return;
+    const compartir = compartirPdf();
+    if (!compartir) return;
+    copiar(mensaje());
+    ayuda.textContent = `Elige WhatsApp y luego el chat de ${perfil.nombre.split(" ")[0]} (${perfil.celular}). El PDF va adjunto; si el mensaje no aparece, mantén presionado y elige Pegar.`;
+    try {
+      await compartir;
+    } catch (err) {
+      if (err && err.name === "AbortError") return;
+      descargar();
+      ayuda.textContent = `No se pudo abrir el menú para compartir. El PDF quedó en tus descargas: envíaselo por WhatsApp a ${perfil.celular}.`;
+    }
+  }
+
+  const botonWhatsapp = $("#enviar-whatsapp");
+  const botonCorreo = $("#enviar-correo");
+  if (TELEFONO) {
+    botonWhatsapp.hidden = false;
+    botonWhatsapp.classList.add("btn-primario");
+  } else {
+    botonCorreo.classList.add("btn-primario");
+  }
+  botonWhatsapp.addEventListener("click", enviarWhatsapp);
+  botonCorreo.addEventListener("click", enviarCorreo);
   $("#enviar-descargar").addEventListener("click", () => { descargar(); ayuda.textContent = "El PDF quedó en tus descargas."; });
   const fechaCorredora = $("#fecha-corredor");
   if (fechaCorredora) fechaCorredora.textContent = escribirFecha(new Date());
   $("#enviar-nombre-corredora").textContent = perfil.nombre;
   $("#enviar-mail").textContent = perfil.correo;
+  $("#enviar-fono").textContent = perfil.celular;
 
 
   /* ---------- Inicio ---------- */
