@@ -2411,18 +2411,35 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
     return navigator.share({ files: [pdfListo], title: asunto(), text: mensaje() });
   }
 
-  async function enviarCorreo() {
-    if (!pdfListo) return;
-    const compartir = compartirPdf();
-    if (!compartir) { correoDirecto(); return; }
-    copiar(perfil.correo);
-    ayuda.textContent = `Elige tu correo (Gmail, Mail u Outlook). El PDF va adjunto. En "Para", pega o escribe ${perfil.correo} y envía.`;
-    try {
-      await compartir;
-    } catch (err) {
-      if (err && err.name === "AbortError") return;
-      correoDirecto();
+  // Teléfono: se abre la aplicación de correo con destinatario, asunto y mensaje listos.
+  // Una página web no puede adjuntar el PDF en ese correo, así que se descarga y, como
+  // alternativa, queda "Compartir PDF", que sí lo adjunta solo (pero sin destinatario).
+  function correoTelefono() {
+    const a = encodeURIComponent(asunto());
+    const m = encodeURIComponent(mensaje());
+    window.location.href = `mailto:${perfil.correo}?subject=${a}&body=${m}`;
+    descargar();
+    ayuda.textContent = "Se abrió tu correo con el destinatario, el asunto y el mensaje listos. "
+      + "El PDF quedó en tus descargas: adjúntalo con el clip 📎 (en Archivos › Descargas) y envía. ";
+    if (navigator.canShare && navigator.canShare({ files: [pdfListo] })) {
+      const alternativa = document.createElement("a");
+      alternativa.href = "#";
+      alternativa.textContent = "¿Prefieres que el PDF vaya adjunto solo? Compartir PDF";
+      alternativa.addEventListener("click", async (e) => {
+        e.preventDefault();
+        const compartir = navigator.share({ files: [pdfListo], title: asunto(), text: mensaje() });
+        copiar(perfil.correo);
+        ayuda.textContent = `Elige tu correo. El PDF va adjunto. En "Para", pega o escribe ${perfil.correo} y envía.`;
+        try { await compartir; } catch {}
+      });
+      ayuda.appendChild(alternativa);
     }
+  }
+
+  function enviarCorreo() {
+    if (!pdfListo) return;
+    if (TELEFONO) correoTelefono();
+    else correoDirecto();
   }
 
   // WhatsApp solo en el teléfono: ahí el PDF va adjunto junto al mensaje.
