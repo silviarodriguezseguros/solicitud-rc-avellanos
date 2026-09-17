@@ -2487,14 +2487,8 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
       || /Android|iPhone|iPad|iPod/i.test(ua)
       || (navigator.maxTouchPoints > 1 && /Macintosh/.test(ua));
   }
-  // En el teléfono el menú de compartir adjunta el PDF solo. En Mac y Windows ese menú no
-  // sirve (no trae WhatsApp y el correo queda sin destinatario), así que ahí no se usa.
+  // WhatsApp aparece solo en teléfonos; en computador el correo abre Gmail.
   const TELEFONO = esTelefono();
-  function compartirPdf() {
-    if (!TELEFONO || !navigator.canShare || !navigator.canShare({ files: [pdfListo] })) return null;
-    // El menú se abre antes de copiar nada: en Safari, copiar primero podía impedir que se abriera.
-    return navigator.share({ files: [pdfListo], title: asunto(), text: mensaje() });
-  }
 
   // Teléfono: se abre la aplicación de correo con destinatario, asunto y mensaje listos.
   // Una página web no puede adjuntar el PDF en ese correo, así que se descarga y, como
@@ -2506,19 +2500,11 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
     descargar();
     ayuda.textContent = "Se abrió tu correo con el destinatario, el asunto y el mensaje listos. "
       + "El PDF quedó en tus descargas: adjúntalo con el clip 📎 (en Archivos › Descargas) y envía. ";
-    if (navigator.canShare && navigator.canShare({ files: [pdfListo] })) {
-      const alternativa = document.createElement("a");
-      alternativa.href = "#";
-      alternativa.textContent = "¿Prefieres que el PDF vaya adjunto solo? Compartir PDF";
-      alternativa.addEventListener("click", async (e) => {
-        e.preventDefault();
-        const compartir = navigator.share({ files: [pdfListo], title: asunto(), text: mensaje() });
-        copiar(perfil.correo);
-        ayuda.textContent = `Elige tu correo. El PDF va adjunto. En "Para", pega o escribe ${perfil.correo} y envía.`;
-        try { await compartir; } catch {}
-      });
-      ayuda.appendChild(alternativa);
-    }
+    copiar(perfil.correo);
+    agregarCompartir(
+      "¿Prefieres que el PDF vaya adjunto solo? Compartir PDF",
+      `Elige tu correo. El PDF va adjunto. En "Para", pega o escribe ${perfil.correo} y envía.`,
+    );
   }
 
   function enviarCorreo() {
@@ -2527,20 +2513,35 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
     else correoDirecto();
   }
 
-  // WhatsApp solo en el teléfono: ahí el PDF va adjunto junto al mensaje.
-  async function enviarWhatsapp() {
+  // Enlace de texto en el cuadro de ayuda que abre el menú del teléfono con el PDF adjunto.
+  function agregarCompartir(texto, instruccion) {
+    if (!navigator.canShare || !navigator.canShare({ files: [pdfListo] })) return;
+    const enlace = document.createElement("a");
+    enlace.href = "#";
+    enlace.textContent = texto;
+    enlace.addEventListener("click", async (e) => {
+      e.preventDefault();
+      const compartir = navigator.share({ files: [pdfListo], title: asunto(), text: mensaje() });
+      ayuda.textContent = instruccion;
+      try { await compartir; } catch {}
+    });
+    ayuda.appendChild(enlace);
+  }
+
+  // WhatsApp solo en el teléfono. Se abre directo el chat de la corredora con el mensaje
+  // (funciona aunque la persona no la tenga guardada como contacto) y el PDF se descarga
+  // para adjuntarlo. Una página web no puede abrir el chat y adjuntar el archivo a la vez.
+  function enviarWhatsapp() {
     if (!pdfListo) return;
-    const compartir = compartirPdf();
-    if (!compartir) return;
-    copiar(mensaje());
-    ayuda.textContent = `Elige WhatsApp y luego el chat de ${perfil.nombre.split(" ")[0]} (${perfil.celular}). El PDF va adjunto; si el mensaje no aparece, mantén presionado y elige Pegar.`;
-    try {
-      await compartir;
-    } catch (err) {
-      if (err && err.name === "AbortError") return;
-      descargar();
-      ayuda.textContent = `No se pudo abrir el menú para compartir. El PDF quedó en tus descargas: envíaselo por WhatsApp a ${perfil.celular}.`;
-    }
+    const nombre = perfil.nombre.split(" ")[0];
+    descargar();
+    window.open(`https://wa.me/${perfil.celular.replace(/\D/g, "")}?text=${encodeURIComponent(mensaje())}`, "_blank", "noopener");
+    ayuda.textContent = `Se abrió el chat de ${nombre} con el mensaje listo. Para adjuntar el PDF toca el clip 📎 › Documento › `
+      + `"${pdfListo.name}" (quedó en Descargas) y envía. `;
+    agregarCompartir(
+      "¿Prefieres que el PDF vaya adjunto solo? Compartir PDF",
+      `Elige WhatsApp y busca el chat de ${nombre} (${perfil.celular}). El PDF va adjunto.`,
+    );
   }
 
   const botonWhatsapp = $("#enviar-whatsapp");
