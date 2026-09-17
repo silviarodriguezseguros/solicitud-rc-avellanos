@@ -2490,21 +2490,33 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
   // WhatsApp aparece solo en teléfonos; en computador el correo abre Gmail.
   const TELEFONO = esTelefono();
 
-  // Teléfono: se abre la aplicación de correo con destinatario, asunto y mensaje listos.
-  // Una página web no puede adjuntar el PDF en ese correo, así que se descarga y, como
-  // alternativa, queda "Compartir PDF", que sí lo adjunta solo (pero sin destinatario).
-  function correoTelefono() {
+  // Teléfono: el menú de compartir abre la aplicación de correo con el PDF adjunto, el asunto
+  // y el mensaje (así le funcionó a la corredora). Ninguna página web puede llenar además el
+  // destinatario, así que la dirección queda copiada para pegarla en "Para".
+  function correoConDestinatario() {
     const a = encodeURIComponent(asunto());
     const m = encodeURIComponent(mensaje());
     window.location.href = `mailto:${perfil.correo}?subject=${a}&body=${m}`;
     descargar();
     ayuda.textContent = "Se abrió tu correo con el destinatario, el asunto y el mensaje listos. "
-      + "El PDF quedó en tus descargas: adjúntalo con el clip 📎 (en Archivos › Descargas) y envía. ";
+      + "El PDF quedó en tus descargas: adjúntalo con el clip 📎 y envía.";
+  }
+  async function correoTelefono() {
+    if (!navigator.canShare || !navigator.canShare({ files: [pdfListo] })) { correoConDestinatario(); return; }
+    const compartir = navigator.share({ files: [pdfListo], title: asunto(), text: mensaje() });
     copiar(perfil.correo);
-    agregarCompartir(
-      "¿Prefieres que el PDF vaya adjunto solo? Compartir PDF",
-      `Elige tu correo. El PDF va adjunto. En "Para", pega o escribe ${perfil.correo} y envía.`,
-    );
+    ayuda.textContent = `Elige Gmail o tu correo: el PDF, el asunto y el mensaje van listos. En "Para" pega ${perfil.correo} (ya está copiado) y envía. `;
+    const alternativa = document.createElement("a");
+    alternativa.href = "#";
+    alternativa.textContent = "¿No te sirve? Abrir el correo con el destinatario listo";
+    alternativa.addEventListener("click", (e) => { e.preventDefault(); correoConDestinatario(); });
+    ayuda.appendChild(alternativa);
+    try {
+      await compartir;
+    } catch (err) {
+      if (err && err.name === "AbortError") return;
+      correoConDestinatario();
+    }
   }
 
   function enviarCorreo() {
