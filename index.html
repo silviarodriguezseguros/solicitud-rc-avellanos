@@ -678,8 +678,29 @@
   }
   .enviar-opciones .btn small { font-size: 13px; font-weight: 400; color: var(--texto-2); }
   .enviar-opciones .btn-primario small { color: rgba(255,255,255,.78); }
+  .pasos-envio { margin: 0; padding: 0; list-style: none; counter-reset: paso; display: grid; gap: 14px; }
+  .pasos-envio li { position: relative; display: grid; gap: 6px; padding-left: 34px; counter-increment: paso; font-size: 15px; }
+  .pasos-envio li::before {
+    content: counter(paso);
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 24px;
+    height: 24px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--accion);
+    color: #fff;
+    font: 700 13px/1 system-ui, sans-serif;
+  }
+  .pasos-envio li.paso-hecho::before { content: "✓"; background: #1d6b3a; }
+  .paso-nota { font-size: 13px; color: var(--texto-2); }
+  /* El nombre del PDF es largo y sin espacios: sin esto ensanchaba los botones fuera del cuadro. */
+  #enviar-listo, .pasos-envio, .pasos-envio li, .enviar-opciones, .enviar-opciones .btn { min-width: 0; }
+  #nombre-pdf { overflow-wrap: anywhere; word-break: break-all; }
   .mensaje-previo { padding: 10px 12px; border: 1px solid var(--borde); border-radius: 8px; background: #fafafa; }
-  .mensaje-previo span { font-size: 12px; color: var(--texto-2); }
+  .mensaje-previo summary { font-size: 13px; color: var(--texto-2); cursor: pointer; }
   .mensaje-previo p { margin: 4px 0 0; font-size: 15px; line-height: 1.4; color: var(--texto); }
   .lista-faltan { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
   .lista-faltan button {
@@ -1102,17 +1123,32 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
     </div>
 
     <div class="dlg" style="padding:0" id="enviar-listo" hidden>
-      <h2>Tu propuesta está lista</h2>
-      <p class="dlg-nota" style="margin:0">Envíasela a <strong id="enviar-nombre-corredora"></strong>.</p>
-      <div class="mensaje-previo">
-        <span>Mensaje que va con el PDF</span>
+      <h2>Tu solicitud está lista</h2>
+      <p class="dlg-nota" style="margin:0">Envíasela a <span class="nombre-corredora"></span> en 3 pasos:</p>
+      <ol class="pasos-envio">
+        <li id="paso-descarga">
+          <strong>Descarga el PDF</strong>
+          <div class="enviar-opciones">
+            <button type="button" class="btn btn-primario" id="enviar-descargar">Descargar PDF <small id="nombre-pdf"></small></button>
+          </div>
+        </li>
+        <li>
+          <strong>Abre el chat o el correo de <span class="nombre-corredora"></span></strong>
+          <span class="paso-nota">Se abre directo, con el mensaje ya escrito.</span>
+          <div class="enviar-opciones">
+            <button type="button" class="btn" id="enviar-whatsapp" hidden>WhatsApp <small id="enviar-fono"></small></button>
+            <button type="button" class="btn" id="enviar-correo">Correo <small id="enviar-mail"></small></button>
+          </div>
+        </li>
+        <li>
+          <strong>Adjunta el PDF y envía</strong>
+          <span class="paso-nota">Toca el clip 📎 y elige el PDF que descargaste.</span>
+        </li>
+      </ol>
+      <details class="mensaje-previo">
+        <summary>Ver el mensaje que se escribe</summary>
         <p id="enviar-mensaje"></p>
-      </div>
-      <div class="enviar-opciones">
-        <button type="button" class="btn" id="enviar-whatsapp" hidden>Enviar por WhatsApp <small id="enviar-fono"></small></button>
-        <button type="button" class="btn" id="enviar-correo">Enviar por correo <small id="enviar-mail"></small></button>
-        <button type="button" class="btn" id="enviar-descargar">Descargar PDF <small>Para guardarlo o enviarlo después</small></button>
-      </div>
+      </details>
       <p class="dlg-ayuda" id="enviar-ayuda" role="status"></p>
       <div class="dlg-acciones"><button type="button" class="btn" data-cerrar>Volver a la propuesta</button></div>
     </div>
@@ -2430,6 +2466,8 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
     try {
       pdfListo = await crearPdf();
       $("#enviar-mensaje").textContent = mensaje();
+      descargado = false;
+      pintarPasos();
       mostrarPaso("enviar-listo");
     } catch (err) {
       console.error(err);
@@ -2452,9 +2490,21 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
   function asunto() {
     return `Solicitud de póliza ${SEGURO}` + (nombreContratante() ? ` - ${nombreContratante()}` : "");
   }
-  function copiar(texto) {
-    try { if (navigator.clipboard) navigator.clipboard.writeText(texto).catch(() => {}); } catch {}
+  function esTelefono() {
+    const ua = navigator.userAgent || "";
+    return !!(navigator.userAgentData && navigator.userAgentData.mobile)
+      || /Android|iPhone|iPad|iPod/i.test(ua)
+      || (navigator.maxTouchPoints > 1 && /Macintosh/.test(ua));
   }
+  const TELEFONO = esTelefono();
+
+  /* Un solo camino, igual para WhatsApp y correo, en tres pasos a la vista:
+     1) descargar el PDF, 2) abrir directo el chat o el correo de la corredora con el mensaje
+     escrito (no hace falta tenerla como contacto), 3) adjuntar el PDF y enviar.
+     Una página web no puede abrir el destinatario y además adjuntar el archivo (así lo definen
+     la norma de "compartir" y la de los enlaces de correo), por eso el paso 3 es a mano. */
+
+  let descargado = false;
   function descargar() {
     const enlace = document.createElement("a");
     enlace.href = URL.createObjectURL(pdfListo);
@@ -2463,116 +2513,63 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
     enlace.click();
     enlace.remove();
     setTimeout(() => URL.revokeObjectURL(enlace.href), 60000);
+    descargado = true;
+    pintarPasos();
   }
-  // Computador: se abre Gmail directo con destinatario, asunto y mensaje, y el PDF queda en
-  // Descargas. El enlace "mailto" no abría nada en equipos sin programa de correo configurado.
-  function correoDirecto() {
-    const a = encodeURIComponent(asunto());
-    const m = encodeURIComponent(mensaje());
-    // Primero la pestaña de Gmail (dentro del mismo clic, para que el navegador no la bloquee).
-    const pestana = window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(perfil.correo)}&su=${a}&body=${m}`, "_blank");
-    descargar();
-    ayuda.textContent = pestana
-      ? "Se abrió Gmail con el destinatario, el asunto y el mensaje listos. El PDF quedó en Descargas: arrástralo al correo o adjúntalo con el clip 📎 y envía. "
-      : "El navegador bloqueó la pestaña de Gmail. El PDF quedó en Descargas. ";
-    const otro = document.createElement("a");
-    otro.href = `mailto:${perfil.correo}?subject=${a}&body=${m}`;
-    otro.textContent = pestana ? "¿Usas Outlook u otro programa? Ábrelo aquí" : "Abrir el correo aquí";
-    ayuda.appendChild(otro);
+  function pintarPasos() {
+    const boton = $("#enviar-descargar");
+    boton.classList.toggle("btn-primario", !descargado);
+    $("#paso-descarga").classList.toggle("paso-hecho", descargado);
+    $("#nombre-pdf").textContent = descargado ? "✓ Descargado: " + pdfListo.name : pdfListo.name;
+  }
+  function comoAdjuntar(destino) {
+    if (!TELEFONO) return "arrastra el PDF desde Descargas al correo, o usa el clip 📎";
+    return destino === "whatsapp"
+      ? "toca el clip 📎 › Documento y elige el PDF (está en Descargas)"
+      : "toca el clip 📎 o «Adjuntar» y elige el PDF (está en Descargas)";
   }
 
-  function esTelefono() {
-    const ua = navigator.userAgent || "";
-    return !!(navigator.userAgentData && navigator.userAgentData.mobile)
-      || /Android|iPhone|iPad|iPod/i.test(ua)
-      || (navigator.maxTouchPoints > 1 && /Macintosh/.test(ua));
-  }
-  // WhatsApp aparece solo en teléfonos; en computador el correo abre Gmail.
-  const TELEFONO = esTelefono();
-
-  // Teléfono: el menú de compartir abre la aplicación de correo con el PDF adjunto, el asunto
-  // y el mensaje (así le funcionó a la corredora). Ninguna página web puede llenar además el
-  // destinatario, así que la dirección queda copiada para pegarla en "Para".
-  function correoConDestinatario() {
-    const a = encodeURIComponent(asunto());
-    const m = encodeURIComponent(mensaje());
-    window.location.href = `mailto:${perfil.correo}?subject=${a}&body=${m}`;
-    descargar();
-    ayuda.textContent = "Se abrió tu correo con el destinatario, el asunto y el mensaje listos. "
-      + "El PDF quedó en tus descargas: adjúntalo con el clip 📎 y envía.";
-  }
-  async function correoTelefono() {
-    if (!navigator.canShare || !navigator.canShare({ files: [pdfListo] })) { correoConDestinatario(); return; }
-    const compartir = navigator.share({ files: [pdfListo], title: asunto(), text: mensaje() });
-    copiar(perfil.correo);
-    ayuda.textContent = `Elige Gmail o tu correo: el PDF, el asunto y el mensaje van listos. En "Para" pega ${perfil.correo} (ya está copiado) y envía. `;
-    const alternativa = document.createElement("a");
-    alternativa.href = "#";
-    alternativa.textContent = "¿No te sirve? Abrir el correo con el destinatario listo";
-    alternativa.addEventListener("click", (e) => { e.preventDefault(); correoConDestinatario(); });
-    ayuda.appendChild(alternativa);
-    try {
-      await compartir;
-    } catch (err) {
-      if (err && err.name === "AbortError") return;
-      correoConDestinatario();
-    }
+  function enviarWhatsapp() {
+    if (!pdfListo) return;
+    const abierta = window.open(`https://wa.me/${perfil.celular.replace(/\D/g, "")}?text=${encodeURIComponent(mensaje())}`, "_blank", "noopener");
+    if (!descargado) descargar();
+    ayuda.textContent = `Se abrió el chat de ${perfil.nombre.split(" ")[0]} con el mensaje escrito. Ahora ${comoAdjuntar("whatsapp")} y envía.`;
+    if (abierta === null && !TELEFONO) ayuda.textContent = "El navegador bloqueó la ventana de WhatsApp. Permite las ventanas emergentes e inténtalo otra vez.";
   }
 
   function enviarCorreo() {
     if (!pdfListo) return;
-    if (TELEFONO) correoTelefono();
-    else correoDirecto();
-  }
-
-  // Enlace de texto en el cuadro de ayuda que abre el menú del teléfono con el PDF adjunto.
-  function agregarCompartir(texto, instruccion) {
-    if (!navigator.canShare || !navigator.canShare({ files: [pdfListo] })) return;
-    const enlace = document.createElement("a");
-    enlace.href = "#";
-    enlace.textContent = texto;
-    enlace.addEventListener("click", async (e) => {
-      e.preventDefault();
-      const compartir = navigator.share({ files: [pdfListo], title: asunto(), text: mensaje() });
-      ayuda.textContent = instruccion;
-      try { await compartir; } catch {}
-    });
-    ayuda.appendChild(enlace);
-  }
-
-  // WhatsApp solo en el teléfono. Se abre directo el chat de la corredora con el mensaje
-  // (funciona aunque la persona no la tenga guardada como contacto) y el PDF se descarga
-  // para adjuntarlo. Una página web no puede abrir el chat y adjuntar el archivo a la vez.
-  function enviarWhatsapp() {
-    if (!pdfListo) return;
-    const nombre = perfil.nombre.split(" ")[0];
-    descargar();
-    window.open(`https://wa.me/${perfil.celular.replace(/\D/g, "")}?text=${encodeURIComponent(mensaje())}`, "_blank", "noopener");
-    ayuda.textContent = `Se abrió el chat de ${nombre} con el mensaje listo. Para adjuntar el PDF toca el clip 📎 › Documento › `
-      + `"${pdfListo.name}" (quedó en Descargas) y envía. `;
-    agregarCompartir(
-      "¿Prefieres que el PDF vaya adjunto solo? Compartir PDF",
-      `Elige WhatsApp y busca el chat de ${nombre} (${perfil.celular}). El PDF va adjunto.`,
-    );
+    const a = encodeURIComponent(asunto());
+    const m = encodeURIComponent(mensaje());
+    if (TELEFONO) {
+      // En el teléfono se abre la aplicación de correo (Gmail, Mail u Outlook) con todo escrito.
+      window.location.href = `mailto:${perfil.correo}?subject=${a}&body=${m}`;
+    } else {
+      // En el computador, Gmail en una pestaña: el enlace de correo no abría nada sin programa configurado.
+      const pestana = window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(perfil.correo)}&su=${a}&body=${m}`, "_blank");
+      if (!pestana) { ayuda.textContent = "El navegador bloqueó la pestaña de Gmail. Permite las ventanas emergentes e inténtalo otra vez."; return; }
+    }
+    if (!descargado) descargar();
+    ayuda.textContent = `Se abrió ${TELEFONO ? "tu correo" : "Gmail"} con el destinatario, el asunto y el mensaje escritos. Ahora ${comoAdjuntar("correo")} y envía. `;
+    const otro = document.createElement("a");
+    otro.href = `mailto:${perfil.correo}?subject=${a}&body=${m}`;
+    otro.textContent = TELEFONO ? "" : "¿Usas Outlook u otro programa? Ábrelo aquí";
+    if (otro.textContent) ayuda.appendChild(otro);
   }
 
   const botonWhatsapp = $("#enviar-whatsapp");
-  const botonCorreo = $("#enviar-correo");
-  if (TELEFONO) {
-    botonWhatsapp.hidden = false;
-    botonWhatsapp.classList.add("btn-primario");
-  } else {
-    botonCorreo.classList.add("btn-primario");
-  }
+  botonWhatsapp.hidden = !TELEFONO;
   botonWhatsapp.addEventListener("click", enviarWhatsapp);
-  botonCorreo.addEventListener("click", enviarCorreo);
-  $("#enviar-descargar").addEventListener("click", () => { descargar(); ayuda.textContent = "El PDF quedó en tus descargas."; });
+  $("#enviar-correo").addEventListener("click", enviarCorreo);
+  $("#enviar-descargar").addEventListener("click", () => {
+    descargar();
+    ayuda.textContent = "Listo, el PDF quedó en Descargas. Ahora elige cómo enviarlo.";
+  });
   const fechaCorredora = $("#fecha-corredor");
   if (fechaCorredora) fechaCorredora.textContent = escribirFecha(new Date());
-  $("#enviar-nombre-corredora").textContent = perfil.nombre;
+  $$(".nombre-corredora").forEach((n) => { n.textContent = perfil.nombre.split(" ")[0]; });
   $("#enviar-mail").textContent = perfil.correo;
   $("#enviar-fono").textContent = perfil.celular;
-
 
   /* ---------- Inicio ---------- */
 
