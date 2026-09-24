@@ -2298,7 +2298,7 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
     recorte.getContext("2d").drawImage(lienzo, x, y, w, h, 0, 0, recorte.width, recorte.height);
     borrador.campos.firma_proponente = recorte.toDataURL("image/png");
     const fecha = campo("fecha_proponente");
-    if (fecha && !fecha.value.trim()) { fecha.value = escribirFecha(new Date()); normalizar(fecha); }
+    if (fecha && !fecha.value.trim()) { fecha.value = escribirFecha(hoy()); normalizar(fecha); }
     dlgFirma.close();
     pintarFirmas();
     guardar();
@@ -2498,10 +2498,11 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
       mostrarPaso("enviar-faltan");
       return;
     }
+    await traerFechaServidor(6000);
     pintarVigencia();
     for (const k of ["fecha_proponente", "fecha_corredor"]) {
       const f = campo(k);
-      if (f && !f.value.trim()) { f.value = escribirFecha(new Date()); normalizar(f); }
+      if (f && !f.value.trim()) { f.value = escribirFecha(hoy()); normalizar(f); }
     }
     const folioAnterior = borrador.campos.envio_folio;
     if (SERVICIO_ENVIO && folioAnterior
@@ -2573,6 +2574,8 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
       cuotas: valor("cuotas"),
       dia: textoCasilla("dia"),
       factura: textoCasilla("factura"),
+      vigencia: ($("#vigencia-texto") || {}).textContent || "",
+      fechaEquipo: (() => { const f = new Date(); const p = (n) => String(n).padStart(2, "0"); return f.getFullYear() + "-" + p(f.getMonth() + 1) + "-" + p(f.getDate()); })(),
       archivo: pdfListo.name,
       pdf: await aBase64(pdfListo),
       pdfCliente: pdfCliente ? await aBase64(pdfCliente) : "",
@@ -2696,12 +2699,34 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
     ayuda.textContent = "Listo, el PDF quedó en Descargas. Ahora elige cómo enviarlo.";
   });
   const fechaCorredora = $("#fecha-corredor");
-  if (fechaCorredora) fechaCorredora.textContent = escribirFecha(new Date());
+  if (fechaCorredora) fechaCorredora.textContent = escribirFecha(hoy());
+  /* La fecha sale del servidor de Google, no del reloj del equipo: un teléfono con la hora
+     mal puesta daría una vigencia equivocada. Si el servidor no responde, se usa la del equipo. */
+  let fechaServidor = null;
+  async function traerFechaServidor(milisegundos) {
+    if (!SERVICIO_ENVIO) return;
+    const control = new AbortController();
+    const reloj = setTimeout(() => control.abort(), milisegundos);
+    try {
+      const r = await fetch(SERVICIO_ENVIO + "?t=" + Date.now(), { cache: "no-store", signal: control.signal });
+      const j = await r.json();
+      if (j && /^\d{4}-\d{2}-\d{2}$/.test(j.fecha)) fechaServidor = j.fecha;
+    } catch {} finally {
+      clearTimeout(reloj);
+    }
+  }
+  function hoy() {
+    if (!fechaServidor) return new Date();
+    const [a, m, d] = fechaServidor.split("-").map(Number);
+    return new Date(a, m - 1, d);
+  }
+  setTimeout(() => { traerFechaServidor(8000).then(pintarVigencia); }, 600);
+
   // Vigencia anual contada desde hoy: si la hoja queda abierta de un día para otro, se actualiza al enviar.
   function pintarVigencia() {
     const caja = $("#vigencia-texto");
     if (!caja) return;
-    const inicio = new Date();
+    const inicio = hoy();
     const fin = new Date(inicio.getFullYear() + 1, inicio.getMonth(), inicio.getDate());
     caja.textContent = escribirFecha(inicio) + " al " + escribirFecha(fin);
     if (fechaCorredora) fechaCorredora.textContent = escribirFecha(inicio);
