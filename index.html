@@ -549,6 +549,8 @@
   .check-fijo { cursor: default; }
   .check-fijo:hover { background: none; }
   .coberturas .fijo { margin: 0; }
+  /* Las dos fechas deben caber en la casilla de vigencia. */
+  .fijo-vigencia { font-size: 9.2pt; white-space: nowrap; }
   .res-val .fijo { flex: 1; margin: 0; padding: 0 1mm; }
   .firma-fecha .fijo { flex: 1; margin: 0; min-height: 1.3em; border-bottom: .75px solid var(--regla); }
   .firma-fecha .f[readonly] { background: transparent; border-bottom: .75px solid var(--regla); border-radius: 0; cursor: default; }
@@ -890,7 +892,7 @@
     </div>
     <div class="celda"><span class="lbl">Sucursal</span><span class="fijo">Chillán</span></div>
     <div class="celda"><span class="lbl">Cotización N°</span><span class="fijo">Adjunta</span></div>
-    <div class="celda"><span class="lbl">Vigencia de la póliza</span><span class="fijo">Anual</span></div>
+    <div class="celda"><span class="lbl">Vigencia de la póliza</span><span class="fijo fijo-vigencia" id="vigencia-texto"></span></div>
   </section>
 
   <section class="seccion">
@@ -2496,6 +2498,7 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
       mostrarPaso("enviar-faltan");
       return;
     }
+    pintarVigencia();
     for (const k of ["fecha_proponente", "fecha_corredor"]) {
       const f = campo(k);
       if (f && !f.value.trim()) { f.value = escribirFecha(new Date()); normalizar(f); }
@@ -2694,6 +2697,16 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
   });
   const fechaCorredora = $("#fecha-corredor");
   if (fechaCorredora) fechaCorredora.textContent = escribirFecha(new Date());
+  // Vigencia anual contada desde hoy: si la hoja queda abierta de un día para otro, se actualiza al enviar.
+  function pintarVigencia() {
+    const caja = $("#vigencia-texto");
+    if (!caja) return;
+    const inicio = new Date();
+    const fin = new Date(inicio.getFullYear() + 1, inicio.getMonth(), inicio.getDate());
+    caja.textContent = escribirFecha(inicio) + " al " + escribirFecha(fin);
+    if (fechaCorredora) fechaCorredora.textContent = escribirFecha(inicio);
+  }
+  pintarVigencia();
   $$(".nombre-corredora").forEach((n) => { n.textContent = perfil.nombre.split(" ")[0]; });
   $("#enviar-mail").textContent = perfil.correo;
   $("#enviar-fono").textContent = perfil.celular;
