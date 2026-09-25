@@ -2545,6 +2545,12 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
       && !confirm(`Esta solicitud ya fue enviada (folio ${folioAnterior}).
 
 ¿Quieres enviarla otra vez con los cambios?`)) return;
+    // Volver a enviar a propósito es una corrección: identificador nuevo, para que el
+    // servicio genere un PDF corregido en vez de devolver el folio anterior.
+    if (SERVICIO_ENVIO && folioAnterior) {
+      borrador.campos.envio_correccion = "1";
+      delete borrador.campos.envio_id;
+    }
     guardar();
     ayuda.textContent = "";
     $("#aviso-auto").hidden = true;
