@@ -1173,7 +1173,7 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
       <p class="exito-folio">Folio N° <strong id="exito-folio"></strong></p>
       <p class="dlg-nota" style="margin:0">Quedó registrada a nombre de <span class="nombre-corredora"></span>.</p>
       <p class="dlg-nota" style="margin:0">Estamos descargando tu comprobante en PDF a este dispositivo. Guárdalo.</p>
-      <p class="dlg-nota" style="margin:0">Durante el día también te llegará una copia por correo a <strong id="exito-correo"></strong>. Si no la ves, revisa la carpeta de spam.</p>
+      <p class="dlg-nota" style="margin:0" id="exito-correo-linea">Durante el día también te llegará una copia por correo a <strong id="exito-correo"></strong>. Si no la ves, revisa la carpeta de spam.</p>
       <p class="dlg-nota" style="margin:0" id="exito-nota"></p>
       <div class="dlg-acciones">
         <button type="button" class="btn" id="exito-descargar">Descargar otra vez</button>
@@ -2575,9 +2575,12 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
     pintarPendiente();
     $("#exito-folio").textContent = respuesta.folio;
     $("#exito-correo").textContent = valor("contratante_correo").trim();
-    // El texto fijo ya explica que el correo llega durante el día; aquí solo se avisa
-    // cuando la solicitud ya estaba registrada, para que nadie crea que se duplicó.
-    $("#exito-nota").textContent = respuesta.repetida ? "Esta solicitud ya estaba registrada; no se creó otra." : "";
+    // Avisos del servicio: prueba interna o solicitud ya registrada.
+    $("#exito-nota").textContent = respuesta.aviso
+      || (respuesta.repetida ? "Esta solicitud ya estaba registrada; no se creó otra." : "");
+    // En las pruebas internas no se promete ningún correo.
+    const enPrueba = String(respuesta.folio || "").indexOf("P-") === 0;
+    $("#exito-correo-linea").hidden = enPrueba;
     mostrarPaso("enviar-exito");
     // El comprobante se descarga solo: así la persona siempre se queda con su copia.
     if (!descargado) descargar();
