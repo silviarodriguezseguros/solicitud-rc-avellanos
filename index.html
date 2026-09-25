@@ -1147,6 +1147,16 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
       <p class="dlg-nota" style="margin:0">No cierres esta página. Tarda unos segundos.</p>
     </div>
 
+    <div class="dlg" style="padding:0" id="enviar-en-proceso" hidden>
+      <h2>Tu solicitud ya está en proceso</h2>
+      <p class="dlg-nota" style="margin:0">Registramos una solicitud con tu RUT, folio N° <strong id="proceso-folio"></strong>. La corredora ya la está gestionando.</p>
+      <p class="dlg-nota" style="margin:0">Si corregiste algún dato, puedes enviarla de nuevo como corrección y reemplazará a la anterior.</p>
+      <div class="dlg-acciones">
+        <button type="button" class="btn" data-cerrar>Volver</button>
+        <button type="button" class="btn btn-primario" id="enviar-correccion">Enviar corrección</button>
+      </div>
+    </div>
+
     <div class="dlg" style="padding:0" id="enviar-sin-conexion" hidden>
       <h2>Sin conexión</h2>
       <p class="dlg-nota" style="margin:0">No pudimos enviar tu solicitud. Todo lo que escribiste quedó guardado.</p>
@@ -2343,7 +2353,7 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
   /* ---------- Finalizar y enviar ---------- */
 
   const dlgEnviar = $("#dlg-enviar");
-  const pasos = ["enviar-faltan", "enviar-preparando", "enviar-enviando", "enviar-exito", "enviar-sin-conexion", "enviar-error", "enviar-listo"];
+  const pasos = ["enviar-faltan", "enviar-preparando", "enviar-enviando", "enviar-exito", "enviar-en-proceso", "enviar-sin-conexion", "enviar-error", "enviar-listo"];
   function mostrarPaso(id) {
     pasos.forEach((p) => { $("#" + p).hidden = p !== id; });
     if (!dlgEnviar.open) dlgEnviar.showModal();
@@ -2575,6 +2585,11 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
 
   function mostrarFalla(err) {
     console.error(err);
+    if (err && err.yaEnProceso) {
+      $("#proceso-folio").textContent = err.folio || "";
+      mostrarPaso("enviar-en-proceso");
+      return;
+    }
     if (!(err && err.paraPersona)) {
       // Problema de conexión: una sola acción, reintentar, para no llenar de botones ni de folios.
       borrador.campos.envio_pendiente = "1";
@@ -2611,6 +2626,14 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
     }
   }
   $("#reintentar-envio").addEventListener("click", reintentarEnvio);
+  $("#enviar-correccion").addEventListener("click", () => {
+    // Una corrección es un registro nuevo: identificador nuevo para que no se confunda
+    // con la solicitud anterior ni con un reintento.
+    borrador.campos.envio_correccion = "1";
+    delete borrador.campos.envio_id;
+    guardar();
+    reintentarEnvio();
+  });
   $$("[data-reintentar]").forEach((b) => b.addEventListener("click", () => { dlgEnviar.close(); reintentarEnvio(); }));
   // Al recuperar la señal se reintenta solo, sin que la persona tenga que hacer nada.
   window.addEventListener("online", () => {
@@ -2647,6 +2670,7 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
     const datos = {
       sitio: "",
       envioId: borrador.campos.envio_id,
+      correccion: borrador.campos.envio_correccion === "1",
       nombre: valor("contratante_nombre").trim(),
       rut: valor("contratante_rut").trim(),
       correo: valor("contratante_correo").trim(),
@@ -2677,6 +2701,12 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
       respuesta = await r.json();
     } finally {
       clearTimeout(tiempo);
+    }
+    if (respuesta && respuesta.motivo === "ya_en_proceso") {
+      const aviso = new Error("Ya en proceso");
+      aviso.yaEnProceso = true;
+      aviso.folio = respuesta.folio;
+      throw aviso;
     }
     if (!respuesta || !respuesta.ok) {
       const error = new Error("Envío rechazado");
