@@ -1158,9 +1158,9 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
     </div>
 
     <div class="dlg" style="padding:0" id="enviar-sin-conexion" hidden>
-      <h2>Sin conexión</h2>
-      <p class="dlg-nota" style="margin:0">No pudimos enviar tu solicitud. Todo lo que escribiste quedó guardado.</p>
-      <p class="dlg-nota" style="margin:0">Cuando vuelva la señal, se enviará sola. También puedes intentarlo ahora.</p>
+      <h2 id="sin-conexion-titulo">Sin conexión</h2>
+      <p class="dlg-nota" style="margin:0" id="sin-conexion-texto">No pudimos enviar tu solicitud. Todo lo que escribiste quedó guardado.</p>
+      <p class="dlg-nota" style="margin:0" id="sin-conexion-detalle">Cuando vuelva la señal, se enviará sola. También puedes intentarlo ahora.</p>
       <div class="dlg-acciones">
         <button type="button" class="btn" data-cerrar>Volver</button>
         <button type="button" class="btn btn-primario" id="reintentar-envio">Reintentar</button>
@@ -2590,8 +2590,24 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
       mostrarPaso("enviar-en-proceso");
       return;
     }
+    if (err && err.ocupado) {
+      // Mucho tráfico junto: se espera y se reintenta solo, sin perder nada.
+      $("#sin-conexion-titulo").textContent = "Hay muchas solicitudes en este momento";
+      $("#sin-conexion-texto").textContent = "Todo lo que escribiste está guardado.";
+      $("#sin-conexion-detalle").textContent = "Lo reintentaremos solos en un minuto. También puedes tocar Reintentar.";
+      borrador.campos.envio_pendiente = "1";
+      guardar();
+      pintarPendiente();
+      mostrarPaso("enviar-sin-conexion");
+      clearTimeout(esperaOcupado);
+      esperaOcupado = setTimeout(() => { if (borrador.campos.envio_pendiente) reintentarEnvio(); }, 60000);
+      return;
+    }
     if (!(err && err.paraPersona)) {
       // Problema de conexión: una sola acción, reintentar, para no llenar de botones ni de folios.
+      $("#sin-conexion-titulo").textContent = "Sin conexión";
+      $("#sin-conexion-texto").textContent = "No pudimos enviar tu solicitud. Todo lo que escribiste quedó guardado.";
+      $("#sin-conexion-detalle").textContent = "Cuando vuelva la señal, se enviará sola. También puedes intentarlo ahora.";
       borrador.campos.envio_pendiente = "1";
       guardar();
       pintarPendiente();
@@ -2610,6 +2626,7 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
     if (!aviso) return;
     aviso.hidden = !(SERVICIO_ENVIO && borrador.campos.envio_pendiente && !borrador.campos.envio_folio);
   }
+  let esperaOcupado = null;
   let reintentando = false;
   async function reintentarEnvio() {
     if (reintentando) return;
@@ -2702,6 +2719,11 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
       respuesta = await r.json();
     } finally {
       clearTimeout(tiempo);
+    }
+    if (respuesta && respuesta.motivo === "ocupado") {
+      const espera = new Error("Servicio ocupado");
+      espera.ocupado = true;
+      throw espera;
     }
     if (respuesta && respuesta.motivo === "ya_en_proceso") {
       const aviso = new Error("Ya en proceso");
