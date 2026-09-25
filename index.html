@@ -492,6 +492,19 @@
     line-height: 1.45;
   }
   .js-listo .aviso-sin-js { display: none; }
+  /* Aviso al volver a abrir la página con una solicitud sin enviar. */
+  .aviso-pendiente {
+    max-width: 216mm;
+    margin: 0 auto 12px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: var(--manual);
+    color: var(--texto);
+    font-size: 15px;
+    line-height: 1.45;
+  }
+  .aviso-pendiente[hidden] { display: none; }
+  .aviso-pendiente .btn { margin-top: 10px; }
   @media print { .aviso-sin-js { display: none !important; } }
 
   .declaracion-caja { padding: 2mm 0 0; border-top: 1px solid var(--regla); }
@@ -867,6 +880,7 @@
 
 <main class="escritorio">
 <div class="aviso-sin-js" role="alert"><strong>Esta vista no deja marcar casillas, firmar ni enviar.</strong> Suele pasar cuando el archivo se abre como vista previa, por ejemplo desde WhatsApp en iPhone. Ábrelo desde el enlace web o en un computador.<span id="aviso-error"></span></div>
+<div class="aviso-pendiente solo-pantalla" id="aviso-pendiente" role="alert" hidden><strong>Tu solicitud quedó sin enviar.</strong> Lo que escribiste está guardado. Cuando tengas señal, toca <strong>Finalizar y enviar</strong> y se manda sola.<button type="button" class="btn" data-reintentar>Reintentar ahora</button></div>
 <p class="guia solo-pantalla">Solo tienes que completar <strong>tus datos</strong> (punto 2), <strong>la forma de pago</strong> (punto 5) y <strong>tu firma</strong>. Lo demás ya viene listo. Al terminar, toca <strong>Finalizar y enviar</strong>.</p>
 <article class="hoja" id="hoja" aria-label="Propuesta de seguros">
 
@@ -1133,14 +1147,26 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
       <p class="dlg-nota" style="margin:0">No cierres esta página. Tarda unos segundos.</p>
     </div>
 
+    <div class="dlg" style="padding:0" id="enviar-sin-conexion" hidden>
+      <h2>Sin conexión</h2>
+      <p class="dlg-nota" style="margin:0">No pudimos enviar tu solicitud. Todo lo que escribiste quedó guardado.</p>
+      <p class="dlg-nota" style="margin:0">Cuando vuelva la señal, se enviará sola. También puedes intentarlo ahora.</p>
+      <div class="dlg-acciones">
+        <button type="button" class="btn" data-cerrar>Volver</button>
+        <button type="button" class="btn btn-primario" id="reintentar-envio">Reintentar</button>
+      </div>
+    </div>
+
     <div class="dlg" style="padding:0" id="enviar-exito" hidden>
       <p class="exito-marca" aria-hidden="true">✓</p>
       <h2>Solicitud enviada</h2>
       <p class="exito-folio">Folio N° <strong id="exito-folio"></strong></p>
-      <p class="dlg-nota" style="margin:0">Le llegó a <span class="nombre-corredora"></span> y te enviamos una copia a <strong id="exito-correo"></strong>. Si no la ves en unos minutos, revisa la carpeta de spam.</p>
+      <p class="dlg-nota" style="margin:0">Quedó registrada a nombre de <span class="nombre-corredora"></span>.</p>
+      <p class="dlg-nota" style="margin:0">Estamos descargando tu comprobante en PDF a este dispositivo. Guárdalo.</p>
+      <p class="dlg-nota" style="margin:0">Durante el día también te llegará una copia por correo a <strong id="exito-correo"></strong>. Si no la ves, revisa la carpeta de spam.</p>
       <p class="dlg-nota" style="margin:0" id="exito-nota"></p>
       <div class="dlg-acciones">
-        <button type="button" class="btn" id="exito-descargar">Descargar mi copia</button>
+        <button type="button" class="btn" id="exito-descargar">Descargar otra vez</button>
         <button type="button" class="btn btn-primario" data-cerrar>Listo</button>
       </div>
     </div>
@@ -2317,7 +2343,7 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
   /* ---------- Finalizar y enviar ---------- */
 
   const dlgEnviar = $("#dlg-enviar");
-  const pasos = ["enviar-faltan", "enviar-preparando", "enviar-enviando", "enviar-exito", "enviar-error", "enviar-listo"];
+  const pasos = ["enviar-faltan", "enviar-preparando", "enviar-enviando", "enviar-exito", "enviar-sin-conexion", "enviar-error", "enviar-listo"];
   function mostrarPaso(id) {
     pasos.forEach((p) => { $("#" + p).hidden = p !== id; });
     if (!dlgEnviar.open) dlgEnviar.showModal();
@@ -2526,22 +2552,70 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
     if (!SERVICIO_ENVIO) { mostrarPaso("enviar-listo"); return; }
     try {
       mostrarPaso("enviar-enviando");
-      const respuesta = await enviarAutomatico();
-      borrador.campos.envio_folio = respuesta.folio;
-      guardar();
-      $("#exito-folio").textContent = respuesta.folio;
-      $("#exito-correo").textContent = valor("contratante_correo").trim();
-      // Si el correo quedó esperando cuota, se avisa sin alarmar: la solicitud ya está registrada.
-      $("#exito-nota").textContent = respuesta.aviso || "";
-      mostrarPaso("enviar-exito");
+      mostrarExito(await enviarAutomatico());
     } catch (err) {
-      console.error(err);
-      // Si el envío automático falla, la solicitud no se pierde: quedan los 3 pasos a mano.
-      $("#aviso-auto").textContent = (err && err.paraPersona) || "No se pudo enviar automáticamente (revisa tu internet). Envíala así:";
-      $("#aviso-auto").hidden = false;
-      mostrarPaso("enviar-listo");
+      mostrarFalla(err);
     }
   }
+
+  function mostrarExito(respuesta) {
+    borrador.campos.envio_folio = respuesta.folio;
+    delete borrador.campos.envio_pendiente;
+    guardar();
+    pintarPendiente();
+    $("#exito-folio").textContent = respuesta.folio;
+    $("#exito-correo").textContent = valor("contratante_correo").trim();
+    // El texto fijo ya explica que el correo llega durante el día; aquí solo se avisa
+    // cuando la solicitud ya estaba registrada, para que nadie crea que se duplicó.
+    $("#exito-nota").textContent = respuesta.repetida ? "Esta solicitud ya estaba registrada; no se creó otra." : "";
+    mostrarPaso("enviar-exito");
+    // El comprobante se descarga solo: así la persona siempre se queda con su copia.
+    if (!descargado) descargar();
+  }
+
+  function mostrarFalla(err) {
+    console.error(err);
+    if (!(err && err.paraPersona)) {
+      // Problema de conexión: una sola acción, reintentar, para no llenar de botones ni de folios.
+      borrador.campos.envio_pendiente = "1";
+      guardar();
+      pintarPendiente();
+      mostrarPaso("enviar-sin-conexion");
+      return;
+    }
+    $("#aviso-auto").textContent = err.paraPersona;
+    $("#aviso-auto").hidden = false;
+    mostrarPaso("enviar-listo");
+  }
+
+  /* ---------- Reintento cuando vuelve la señal ---------- */
+
+  function pintarPendiente() {
+    const aviso = $("#aviso-pendiente");
+    if (!aviso) return;
+    aviso.hidden = !(SERVICIO_ENVIO && borrador.campos.envio_pendiente && !borrador.campos.envio_folio);
+  }
+  let reintentando = false;
+  async function reintentarEnvio() {
+    if (reintentando) return;
+    if (!pdfListo) { finalizar(); return; }
+    reintentando = true;
+    $("#aviso-auto").hidden = true;
+    mostrarPaso("enviar-enviando");
+    try {
+      mostrarExito(await enviarAutomatico());
+    } catch (err) {
+      mostrarFalla(err);
+    } finally {
+      reintentando = false;
+    }
+  }
+  $("#reintentar-envio").addEventListener("click", reintentarEnvio);
+  $$("[data-reintentar]").forEach((b) => b.addEventListener("click", () => { dlgEnviar.close(); reintentarEnvio(); }));
+  // Al recuperar la señal se reintenta solo, sin que la persona tenga que hacer nada.
+  window.addEventListener("online", () => {
+    if (SERVICIO_ENVIO && pdfListo && borrador.campos.envio_pendiente) reintentarEnvio();
+  });
 
   /* ---------- Envío automático ---------- */
 
@@ -2564,8 +2638,15 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
       const b = $(`[data-toggle="${grupo}"][data-value="${borrador.toggles[grupo]}"]`, hoja);
       return b ? b.textContent.replace(/\s+/g, " ").trim() : "";
     };
+    // El mismo identificador en todos los reintentos: el servicio devuelve el folio ya
+    // creado en vez de registrar la solicitud dos veces.
+    if (!borrador.campos.envio_id) {
+      borrador.campos.envio_id = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+      guardar();
+    }
     const datos = {
       sitio: "",
+      envioId: borrador.campos.envio_id,
       nombre: valor("contratante_nombre").trim(),
       rut: valor("contratante_rut").trim(),
       correo: valor("contratante_correo").trim(),
@@ -2700,6 +2781,7 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
     descargar();
     ayuda.textContent = "Listo, el PDF quedó en Descargas. Ahora elige cómo enviarlo.";
   });
+  pintarPendiente();
   const fechaCorredora = $("#fecha-corredor");
   if (fechaCorredora) fechaCorredora.textContent = escribirFecha(hoy());
   /* La fecha sale del servidor de Google, no del reloj del equipo: un teléfono con la hora
