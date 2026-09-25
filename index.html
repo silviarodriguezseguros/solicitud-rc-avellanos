@@ -2526,11 +2526,13 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
     if (!SERVICIO_ENVIO) { mostrarPaso("enviar-listo"); return; }
     try {
       mostrarPaso("enviar-enviando");
-      const folio = await enviarAutomatico();
-      borrador.campos.envio_folio = folio;
+      const respuesta = await enviarAutomatico();
+      borrador.campos.envio_folio = respuesta.folio;
       guardar();
-      $("#exito-folio").textContent = folio;
+      $("#exito-folio").textContent = respuesta.folio;
       $("#exito-correo").textContent = valor("contratante_correo").trim();
+      // Si el correo quedó esperando cuota, se avisa sin alarmar: la solicitud ya está registrada.
+      $("#exito-nota").textContent = respuesta.aviso || "";
       mostrarPaso("enviar-exito");
     } catch (err) {
       console.error(err);
@@ -2600,7 +2602,7 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
       error.paraPersona = ((respuesta && respuesta.error) || "No se pudo enviar automáticamente.") + " Envíala así:";
       throw error;
     }
-    return respuesta.folio;
+    return respuesta;
   }
   $("#btn-finalizar").addEventListener("click", finalizar);
   $$("[data-finalizar]").forEach((b) => b.addEventListener("click", finalizar));
