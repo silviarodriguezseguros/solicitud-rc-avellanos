@@ -705,6 +705,13 @@
     font: 700 28px/1 system-ui, sans-serif;
   }
   .exito-folio { margin: 0; font-size: 17px; }
+  /* Los datos escritos, grandes, para que la persona los revise de una mirada. */
+  .datos-confirmar {
+    margin: 0; padding: 12px; border-radius: 8px; background: #f3f4f6;
+    display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; align-items: baseline;
+  }
+  .datos-confirmar dt { margin: 0; font-size: 13px; color: #4b5563; }
+  .datos-confirmar dd { margin: 0; font-size: 17px; font-weight: 600; word-break: break-all; }
   .aviso-auto { margin: 0; padding: 10px 12px; border-radius: 8px; background: #fdecea; color: #6f1a12; font-size: 14px; }
   .pasos-envio { margin: 0; padding: 0; list-style: none; counter-reset: paso; display: grid; gap: 14px; }
   .pasos-envio li { position: relative; display: grid; gap: 6px; padding-left: 34px; counter-increment: paso; font-size: 15px; }
@@ -1168,6 +1175,20 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
       </div>
     </div>
 
+    <div class="dlg" style="padding:0" id="enviar-confirmar" hidden>
+      <h2>Revisa que estos datos sean tuyos</h2>
+      <p class="dlg-nota" style="margin:0" id="confirmar-motivo"></p>
+      <dl class="datos-confirmar">
+        <dt>RUT</dt><dd id="confirmar-rut"></dd>
+        <dt>E-mail</dt><dd id="confirmar-correo"></dd>
+      </dl>
+      <p class="dlg-nota" style="margin:0">Si este teléfono lo ocupó otra persona antes, puede que haya quedado algo escrito de ella.</p>
+      <div class="dlg-acciones">
+        <button type="button" class="btn" data-cerrar>Volver a revisar</button>
+        <button type="button" class="btn btn-primario" id="confirmar-enviar">Sí, son míos · Enviar</button>
+      </div>
+    </div>
+
     <div class="dlg" style="padding:0" id="enviar-sin-conexion" hidden>
       <h2 id="sin-conexion-titulo">Sin conexión</h2>
       <p class="dlg-nota" style="margin:0" id="sin-conexion-texto">No pudimos enviar tu solicitud. Todo lo que escribiste quedó guardado.</p>
@@ -1188,6 +1209,7 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
       <p class="dlg-nota" style="margin:0" id="exito-nota"></p>
       <div class="dlg-acciones">
         <button type="button" class="btn" id="exito-descargar">Descargar otra vez</button>
+        <button type="button" class="btn" id="exito-otra">Enviar otra solicitud</button>
         <button type="button" class="btn btn-primario" data-cerrar>Listo</button>
       </div>
     </div>
@@ -2344,6 +2366,10 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
     recorte.height = Math.max(1, Math.round(h));
     recorte.getContext("2d").drawImage(lienzo, x, y, w, h, 0, 0, recorte.width, recorte.height);
     borrador.campos.firma_proponente = recorte.toDataURL("image/png");
+    // De quién es esta firma: si después aparece otro RUT, el teléfono es prestado
+    // y la firma anterior no le sirve a la persona nueva.
+    borrador.campos.firma_rut = valor("contratante_rut").trim();
+    firmaBorradaPorRut = false;
     const fecha = campo("fecha_proponente");
     if (fecha && !fecha.value.trim()) { fecha.value = escribirFecha(hoy()); normalizar(fecha); }
     dlgFirma.close();
@@ -2364,7 +2390,7 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
   /* ---------- Finalizar y enviar ---------- */
 
   const dlgEnviar = $("#dlg-enviar");
-  const pasos = ["enviar-faltan", "enviar-preparando", "enviar-enviando", "enviar-exito", "enviar-en-proceso", "enviar-sin-conexion", "enviar-error", "enviar-listo"];
+  const pasos = ["enviar-faltan", "enviar-preparando", "enviar-enviando", "enviar-exito", "enviar-en-proceso", "enviar-confirmar", "enviar-sin-conexion", "enviar-error", "enviar-listo"];
   function mostrarPaso(id) {
     pasos.forEach((p) => { $("#" + p).hidden = p !== id; });
     if (!dlgEnviar.open) dlgEnviar.showModal();
@@ -2375,6 +2401,47 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
   const quitarFalta = (e) => { const f = e.target.closest(".falta"); if (f) f.classList.remove("falta"); };
   hoja.addEventListener("input", quitarFalta, true);
   hoja.addEventListener("click", quitarFalta, true);
+
+  /* ---------- Un mismo teléfono, varias personas ----------
+     En el campo se prestan el teléfono, y una misma persona manda por varias sociedades.
+     Lo que identifica a una solicitud es el RUT: ni el correo ni el aparato sirven. */
+
+  let firmaBorradaPorRut = false;
+
+  // "76.805.225-5", "76805225-5" y "76805225K" tienen que contar como el mismo RUT.
+  function mismoRut(a, b) {
+    const limpio = (v) => String(v || "").replace(/[^0-9kK]/g, "").toUpperCase();
+    return limpio(a) !== "" && limpio(a) === limpio(b);
+  }
+
+  // Si el RUT escrito no es el de la firma dibujada, esa firma es de otra persona.
+  function revisarFirmaDelRut() {
+    const rut = valor("contratante_rut").trim();
+    const firmante = borrador.campos.firma_rut;
+    if (!borrador.campos.firma_proponente || !rut) return;
+    if (!firmante) { borrador.campos.firma_rut = rut; return; }
+    if (mismoRut(firmante, rut)) return;
+    delete borrador.campos.firma_proponente;
+    delete borrador.campos.firma_rut;
+    firmaBorradaPorRut = true;
+    pintarFirmas();
+    guardar();
+  }
+
+  // ¿Este equipo ya envió otra solicitud, a nombre de otro RUT?
+  function equipoConOtroEnvio() {
+    return !!borrador.campos.envio_folio
+      && !mismoRut(borrador.campos.envio_rut, valor("contratante_rut").trim());
+  }
+  // Lo enviado antes desde este equipo era de otra persona: no se arrastra nada, para que
+  // esta salga como solicitud nueva y no toque la anterior.
+  function olvidarEnvioPrevio() {
+    delete borrador.campos.envio_folio;
+    delete borrador.campos.envio_rut;
+    delete borrador.campos.envio_id;
+    delete borrador.campos.envio_correccion;
+    guardar();
+  }
 
   function revisarObligatorios() {
     const faltan = [];
@@ -2404,7 +2471,12 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
       pedir("pat_vencimiento", "Vencimiento de la tarjeta (PAT)");
     }
     if (borrador.toggles.declaracion !== "si") faltan.push({ el: $('[data-toggle="declaracion"]', hoja), texto: "Aceptar la declaración" });
-    if (!borrador.campos.firma_proponente) faltan.push({ el: $("#btn-firmar"), texto: "Tu firma" });
+    if (!borrador.campos.firma_proponente) {
+      faltan.push({
+        el: $("#btn-firmar"),
+        texto: firmaBorradaPorRut ? "Tu firma: el RUT cambió, firma tú de nuevo" : "Tu firma",
+      });
+    }
     return faltan;
   }
 
@@ -2522,6 +2594,7 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     $$("input.f[data-k]", hoja).forEach((el) => { if (el.dataset.tipo) normalizar(el); validarExtra(el); });
     guardar();
+    revisarFirmaDelRut();
     $$(".falta", document).forEach((n) => n.classList.remove("falta"));
     const faltan = revisarObligatorios();
     if (faltan.length) {
@@ -2551,7 +2624,16 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
       const f = campo(k);
       if (f && !f.value.trim()) { f.value = escribirFecha(hoy()); normalizar(f); }
     }
-    // Si desde este mismo equipo ya se envió, se avisa con la ventana del formulario.
+    // Este equipo ya envió, pero a nombre de otro RUT: antes de gastar un folio se le
+    // muestran a la persona los datos que escribió, por si quedó algo del que usó el
+    // teléfono antes. Si confirma, se manda como solicitud nueva.
+    if (SERVICIO_ENVIO && !datosConfirmados && equipoConOtroEnvio()) {
+      mostrarConfirmar("En este teléfono ya se envió otra solicitud, a nombre de otro RUT.");
+      return;
+    }
+    if (datosConfirmados && equipoConOtroEnvio()) olvidarEnvioPrevio();
+    // Si desde este mismo equipo ya se envió ESTA solicitud (mismo RUT), se avisa con la
+    // ventana del formulario.
     if (SERVICIO_ENVIO && borrador.campos.envio_folio && !borrador.campos.envio_correccion) {
       mostrarYaEnviada({ desdeEsteEquipo: true });
       return;
@@ -2581,8 +2663,19 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
 
   function mostrarExito(respuesta) {
     borrador.campos.envio_folio = respuesta.folio;
+    borrador.campos.envio_rut = valor("contratante_rut").trim();
     delete borrador.campos.envio_pendiente;
+    // La marca de corrección vale solo para el envío que acaba de salir: si queda puesta,
+    // todo lo que mande después este teléfono viajaría como corrección de algo.
+    delete borrador.campos.envio_correccion;
+    // La firma se borra apenas sale la solicitud: nadie firma con la firma de otro, y el
+    // que manda por otra sociedad vuelve a firmar. El PDF ya está hecho y descargado.
+    delete borrador.campos.firma_proponente;
+    delete borrador.campos.firma_rut;
+    firmaBorradaPorRut = false;
+    datosConfirmados = false;
     guardar();
+    pintarFirmas();
     pintarPendiente();
     $("#exito-folio").textContent = respuesta.folio;
     $("#exito-correo").textContent = valor("contratante_correo").trim();
@@ -2600,7 +2693,11 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
   function mostrarFalla(err) {
     console.error(err);
     if (err && err.yaEnProceso) {
-      mostrarYaEnviada({ coincide: err.coincide });
+      mostrarYaEnviada();
+      return;
+    }
+    if (err && err.confirmarCorreo) {
+      mostrarConfirmar("Este correo ya se usó en otra solicitud, a nombre de otro RUT.");
       return;
     }
     if (err && err.ocupado) {
@@ -2639,22 +2736,32 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
     if (!aviso) return;
     aviso.hidden = !(SERVICIO_ENVIO && borrador.campos.envio_pendiente && !borrador.campos.envio_folio);
   }
-  function mostrarYaEnviada({ coincide, desdeEsteEquipo } = {}) {
+  function mostrarYaEnviada({ desdeEsteEquipo } = {}) {
     const rut = valor("contratante_rut").trim();
     const correo = valor("contratante_correo").trim();
-    const porCorreo = coincide === "correo";
-    const porAmbos = coincide === "ambos";
     $("#proceso-titulo").textContent = desdeEsteEquipo
       ? "Ya enviaste esta solicitud"
-      : porAmbos ? "Estos datos ya fueron usados"
-      : porCorreo ? "Este correo ya fue usado" : "Este RUT ya fue usado";
+      : "Este RUT ya fue usado";
     $("#proceso-texto").textContent = desdeEsteEquipo
-      ? `Desde este equipo ya enviaste una solicitud con el RUT ${rut}.`
-      : porAmbos ? `Ya recibimos una solicitud con el RUT ${rut} y el correo ${correo}.`
-      : porCorreo ? `Ya recibimos una solicitud con el correo ${correo}.`
-      : `Ya recibimos una solicitud con el RUT ${rut}.`;
+      ? `Desde este equipo ya enviaste una solicitud con el RUT ${rut} (${correo}).`
+      : `Ya recibimos una solicitud con el RUT ${rut} (${correo}).`;
     mostrarPaso("enviar-en-proceso");
   }
+
+  // Los datos escritos, a la vista, antes de gastar un folio.
+  function mostrarConfirmar(motivo) {
+    $("#confirmar-motivo").textContent = motivo;
+    $("#confirmar-rut").textContent = valor("contratante_rut").trim();
+    $("#confirmar-correo").textContent = valor("contratante_correo").trim();
+    mostrarPaso("enviar-confirmar");
+  }
+
+  // La persona ya miró sus datos y dijo que son suyos: vale para este envío.
+  let datosConfirmados = false;
+  $("#confirmar-enviar").addEventListener("click", () => {
+    datosConfirmados = true;
+    if (pdfListo) reintentarEnvio(); else finalizar();
+  });
 
   let esperaOcupado = null;
   let reintentando = false;
@@ -2719,6 +2826,7 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
       clave: "f9Cz5pSR2VxtgOsQ4j81CJu-",
       envioId: borrador.campos.envio_id,
       correccion: borrador.campos.envio_correccion === "1",
+      confirmado: datosConfirmados,
       nombre: valor("contratante_nombre").trim(),
       rut: valor("contratante_rut").trim(),
       correo: valor("contratante_correo").trim(),
@@ -2759,7 +2867,13 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
       const aviso = new Error("Ya en proceso");
       aviso.yaEnProceso = true;
       aviso.folio = respuesta.folio;
-      aviso.coincide = respuesta.coincide;
+      throw aviso;
+    }
+    // El correo ya lo ocupó otra solicitud, pero con otro RUT: puede ser la misma persona
+    // mandando por otra sociedad, o datos que quedaron en un teléfono prestado.
+    if (respuesta && respuesta.motivo === "confirmar_correo") {
+      const aviso = new Error("Confirmar correo");
+      aviso.confirmarCorreo = true;
       throw aviso;
     }
     if (!respuesta || !respuesta.ok) {
@@ -2872,15 +2986,27 @@ A favor de Frutícola AgriChile S.A., RUT.: 96.618.010-2</p>
   botonNueva.replaceWith(nuevaBase);
   nuevaBase.addEventListener("click", () => dlgBorrar.showModal());
   $("#borrar-cancelar").addEventListener("click", () => dlgBorrar.close());
-  $("#borrar-confirmar").addEventListener("click", () => {
-    dlgBorrar.close();
+  function empezarDeNuevo() {
     borrador = borradorNuevo();
     almacen.escribir(CLAVE.borrador, borrador);
     try { sessionStorage.removeItem(CLAVE.borrador + ":sensibles"); } catch {}
     pdfListo = null;
+    firmaBorradaPorRut = false;
     cargar();
     pintarPendiente();
     campo("contratante_nombre").focus();
+  }
+  $("#borrar-confirmar").addEventListener("click", () => {
+    dlgBorrar.close();
+    empezarDeNuevo();
+  });
+  // Muchos mandan por más de una sociedad, o le llenan el formulario al vecino. Se dejan
+  // los datos escritos, que ahorran tiempo, y se parte por el nombre. La firma ya se borró
+  // al enviar, y si el RUT cambia la página pide confirmar antes de gastar otro folio.
+  $("#exito-otra").addEventListener("click", () => {
+    dlgEnviar.close();
+    const nombre = campo("contratante_nombre");
+    if (nombre) { nombre.focus(); nombre.select?.(); }
   });
 
   pintarPendiente();
