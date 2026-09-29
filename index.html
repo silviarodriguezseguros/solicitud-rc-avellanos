@@ -471,6 +471,12 @@
 
 
   /* ---------- Propuesta avellanos: guía, firma, declaración y envío ---------- */
+
+  /* El teléfono no agranda el texto por su cuenta. Sin esto, algunos iPhone y Android
+     inflaban la letra al dibujar el PDF: la hoja salía más larga y cada solicitud
+     quedaba de un tamaño distinto. Con esto, todas salen iguales. */
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
   .guia {
     max-width: 216mm;
     margin: 0 auto 14px;
